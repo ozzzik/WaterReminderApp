@@ -170,8 +170,9 @@ After setup, you'll have:
 - **Issues**: `https://github.com/YOUR_USERNAME/WaterReminderApp/issues`
 - **Wiki**: `https://github.com/YOUR_USERNAME/WaterReminderApp/wiki`
 
-## 📱 App Store Support URL
+## 📱 App Store URLs
 
+### Support URL
 Use this as your **Support URL** in App Store Connect:
 ```
 https://github.com/YOUR_USERNAME/WaterReminderApp/issues
@@ -181,6 +182,14 @@ Or if you enabled GitHub Pages:
 ```
 https://YOUR_USERNAME.github.io/WaterReminderApp/
 ```
+
+### Privacy Policy URL
+Use this as your **Privacy Policy URL** in App Store Connect:
+```
+https://YOUR_USERNAME.github.io/WaterReminderApp/privacy-policy.html
+```
+
+**Important:** You must enable GitHub Pages and use the `/docs` folder as the source for this to work.
 
 ## 🎉 Congratulations!
 
