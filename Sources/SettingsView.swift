@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var waterReminderManager: WaterReminderManager
     @EnvironmentObject var notificationManager: NotificationManager
+    @EnvironmentObject var ratingManager: RatingManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedIntervalIndex = 0
@@ -10,7 +11,6 @@ struct SettingsView: View {
     @State private var showingCustomInterval = false
     
     private let presetIntervals = [
-        (900, "15 minutes"),
         (1800, "30 minutes"),
         (2700, "45 minutes"),
         (3600, "1 hour"),
@@ -22,6 +22,70 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section {
+                    // Water Intake Goal - More Prominent
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "target")
+                                .foregroundColor(.blue)
+                                .font(.title2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Water Intake Goal")
+                                    .font(.headline)
+                                    .fontWeight(.semibold)
+                                Text("Set your daily hydration target")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            Text("\(Int(waterReminderManager.waterIntakeGoal)) cups")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.blue)
+                        }
+                        
+                        // Goal Slider
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("4 cups")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("16 cups")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Slider(
+                                value: $waterReminderManager.waterIntakeGoal,
+                                in: 4...16,
+                                step: 1
+                            )
+                            .accentColor(.blue)
+                            .onChange(of: waterReminderManager.waterIntakeGoal) { _ in
+                                waterReminderManager.saveSettingsManually()
+                            }
+                            
+                            HStack {
+                                Text("Current goal:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("\(Int(waterReminderManager.waterIntakeGoal)) cups")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                        
+                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("Water Intake Goal")
+                } footer: {
+                    Text("The recommended daily water intake is 8 cups (64 oz), but this can vary based on your activity level, climate, and health needs.")
+                }
+                
                 Section("Reminder Settings") {
                     HStack {
                         Image(systemName: "bell")
@@ -30,6 +94,9 @@ struct SettingsView: View {
                         Spacer()
                         Toggle("", isOn: $waterReminderManager.isReminderEnabled)
                             .labelsHidden()
+                            .onChange(of: waterReminderManager.isReminderEnabled) { _ in
+                                waterReminderManager.saveSettingsManually()
+                            }
                     }
                     
                     if !notificationManager.isAuthorized {
@@ -56,10 +123,20 @@ struct SettingsView: View {
                             Text("Custom").tag(presetIntervals.count)
                         }
                         .onChange(of: selectedIntervalIndex) { newValue in
+                            print("🎯 User selected interval index: \(newValue)")
                             if newValue < presetIntervals.count {
-                                waterReminderManager.reminderInterval = TimeInterval(presetIntervals[newValue].0)
+                                let selectedPreset = presetIntervals[newValue]
+                                print("🎯 Selected preset: \(selectedPreset.1) (\(selectedPreset.0) seconds)")
+                                print("🎯 Setting reminderInterval to: \(selectedPreset.0)")
+                                waterReminderManager.reminderInterval = TimeInterval(selectedPreset.0)
+                                print("🎯 After setting - reminderInterval is: \(waterReminderManager.reminderInterval)")
                                 showingCustomInterval = false
+                                // Manual save since automatic saves are disabled
+                                waterReminderManager.saveSettingsManually()
+                                // Reschedule notifications with new interval
+                                waterReminderManager.scheduleReminders()
                             } else {
+                                print("🎯 Selected custom interval")
                                 showingCustomInterval = true
                             }
                         }
@@ -77,18 +154,18 @@ struct SettingsView: View {
                                         .textFieldStyle(.roundedBorder)
                                         .frame(width: 80)
                                         .onChange(of: customIntervalMinutes) { newValue in
-                                            // Ensure minimum 1 minute
-                                            if newValue < 1 {
-                                                customIntervalMinutes = 1
+                                            // Ensure minimum 30 minutes to stay within iOS 64 notification limit
+                                            if newValue < 30 {
+                                                customIntervalMinutes = 30
                                             }
                                             updateCustomInterval()
                                         }
                                     Text("minutes")
                                 }
                                 
-                                // Quick minute options
+                                // Quick minute options (minimum 30 minutes)
                                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 10) {
-                                    ForEach([5, 10, 15, 20, 30, 45, 60, 90], id: \.self) { minutes in
+                                    ForEach([30, 45, 60, 90, 120, 180, 240, 300], id: \.self) { minutes in
                                         Button("\(minutes)m") {
                                             customIntervalMinutes = minutes
                                             updateCustomInterval()
@@ -115,12 +192,18 @@ struct SettingsView: View {
                                 Image(systemName: "sunrise")
                                     .foregroundColor(.orange)
                                 DatePicker("Start Time", selection: $waterReminderManager.startTime, displayedComponents: .hourAndMinute)
+                                    .onChange(of: waterReminderManager.startTime) { _ in
+                                        waterReminderManager.saveSettingsManually()
+                                    }
                             }
                             
                             HStack {
                                 Image(systemName: "sunset")
                                     .foregroundColor(.purple)
                                 DatePicker("End Time", selection: $waterReminderManager.endTime, displayedComponents: .hourAndMinute)
+                                    .onChange(of: waterReminderManager.endTime) { _ in
+                                        waterReminderManager.saveSettingsManually()
+                                    }
                             }
                             
                             // Quick time presets
@@ -160,21 +243,6 @@ struct SettingsView: View {
                     }
                 }
                 
-                Section("Water Intake Goal") {
-                    HStack {
-                        Image(systemName: "drop.fill")
-                            .foregroundColor(.blue)
-                        Text("Daily Goal")
-                        Spacer()
-                        TextField("Cups", value: $waterReminderManager.waterIntakeGoal, format: .number)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 80)
-                        Text("cups")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
                 Section("Today's Progress") {
                     HStack {
                         Image(systemName: "chart.bar.fill")
@@ -191,13 +259,43 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
                 
+                #if DEBUG
+                Section("Testing") {
+                    // Test notification button
+                    Button(action: {
+                        print("🧪 Sending test notification...")
+                        waterReminderManager.scheduleTestNotification()
+                    }) {
+                        HStack {
+                            Image(systemName: "bell.badge")
+                                .foregroundColor(.blue)
+                            Text("Send Test Notification (5s)")
+                        }
+                    }
+                    
+                    // Force refresh notifications
+                    if waterReminderManager.isReminderEnabled {
+                        Button(action: {
+                            print("🔄 Force refreshing notifications...")
+                            waterReminderManager.forceRefreshNotifications()
+                        }) {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundColor(.orange)
+                                Text("Force Refresh Notifications")
+                            }
+                        }
+                    }
+                }
+                #endif
+                
                 Section("About") {
                     HStack {
                         Image(systemName: "info.circle")
                             .foregroundColor(.blue)
                         Text("Version")
                         Spacer()
-                        Text("1.0.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2")
                             .foregroundColor(.secondary)
                     }
                     
@@ -226,10 +324,16 @@ struct SettingsView: View {
     
     private func updateSelectedIntervalIndex() {
         let currentInterval = waterReminderManager.reminderInterval
+        print("🔍 UpdateSelectedIntervalIndex - currentInterval: \(currentInterval) seconds")
+        print("🔍 Converting to Int: \(Int(currentInterval))")
+        
         if let index = presetIntervals.firstIndex(where: { $0.0 == Int(currentInterval) }) {
+            print("✅ Found matching preset at index \(index): \(presetIntervals[index])")
             selectedIntervalIndex = index
             showingCustomInterval = false
         } else {
+            print("❌ No matching preset found, using custom")
+            print("🔍 Available presets: \(presetIntervals.map { $0.0 })")
             selectedIntervalIndex = presetIntervals.count
             showingCustomInterval = true
             customIntervalMinutes = Int(currentInterval) / 60
@@ -240,6 +344,9 @@ struct SettingsView: View {
         let totalSeconds = customIntervalMinutes * 60
         if totalSeconds > 0 {
             waterReminderManager.reminderInterval = TimeInterval(totalSeconds)
+            waterReminderManager.saveSettingsManually()
+            // Reschedule notifications with new interval
+            waterReminderManager.scheduleReminders()
         }
     }
     
@@ -263,6 +370,7 @@ struct SettingsView: View {
         }
     }
 }
+
 
 #Preview {
     SettingsView()

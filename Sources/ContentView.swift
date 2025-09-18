@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var waterReminderManager: WaterReminderManager
     @EnvironmentObject var notificationManager: NotificationManager
+    @EnvironmentObject var ratingManager: RatingManager
     @State private var showingSettings = false
     @State private var showingAddWater = false
     @State private var showingNotificationSent = false
@@ -194,10 +195,27 @@ struct ContentView: View {
             }
             .onAppear {
                 updateRecurringNotificationStatus()
+                setupNotificationObservers()
             }
-            .onChange(of: waterReminderManager.isReminderEnabled) { _ in
+            .onChange(of: waterReminderManager.isReminderEnabled) {
                 updateRecurringNotificationStatus()
             }
+            .overlay(
+                // Rating request overlay
+                ZStack {
+                    if ratingManager.shouldShowRatingRequest {
+                        Color.black.opacity(0.4)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                ratingManager.userDeclinedRating()
+                            }
+                        
+                        RatingRequestView(ratingManager: ratingManager)
+                            .transition(.scale.combined(with: .opacity))
+                            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: ratingManager.shouldShowRatingRequest)
+                    }
+                }
+            )
             .overlay(
                 // Notification sent success message
                 VStack {
@@ -254,7 +272,21 @@ struct ContentView: View {
     }
     
     private func updateRecurringNotificationStatus() {
-        hasRecurringNotifications = notificationManager.hasRecurringNotifications()
+        notificationManager.hasRecurringNotificationsAsync { hasRecurring in
+            hasRecurringNotifications = hasRecurring
+        }
+    }
+    
+    private func setupNotificationObservers() {
+        // Listen for water intake recorded from notifications
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("WaterIntakeRecorded"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            print("💧 Water intake recorded from notification")
+            // The UI will automatically update due to @Published properties
+        }
     }
 }
 
@@ -289,9 +321,11 @@ struct QuickAddButton: View {
     }
 }
 
+
 #Preview {
     ContentView()
         .environmentObject(WaterReminderManager())
         .environmentObject(NotificationManager())
+        .environmentObject(RatingManager())
 } 
 

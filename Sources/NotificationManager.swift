@@ -1,34 +1,82 @@
 import Foundation
 import UserNotifications
+import UIKit
 
 class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     @Published var isAuthorized = false
+    
+    // Reference to WaterReminderManager for progress tracking
+    weak var waterReminderManager: WaterReminderManager?
     
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
         setupNotificationCategories()
         checkAuthorizationStatus()
+        setupAppLifecycleObservers()
     }
     
-    private func setupNotificationCategories() {
-        // Create notification actions
-        let drinkWaterAction = UNNotificationAction(
-            identifier: "DRINK_WATER",
-            title: "Drink Water 💧",
-            options: [.foreground]
+    private func setupAppLifecycleObservers() {
+        // Listen for app lifecycle events to ensure notifications persist
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appWillEnterForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func appDidBecomeActive() {
+        print("📱 App became active - checking notification status")
+        // Small delay to ensure system is ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.debugNotificationStatus()
+        }
+    }
+    
+    @objc private func appWillEnterForeground() {
+        print("📱 App will enter foreground - verifying notifications")
+        // This ensures notifications are still active when returning to the app
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.debugNotificationStatus()
+        }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    func setupNotificationCategories() {
+        // Create notification actions for water logging
+        let drinkOneCupAction = UNNotificationAction(
+            identifier: "DRINK_ONE_CUP",
+            title: "+1 Cup 💧",
+            options: [] // Background execution - no app opening
+        )
+        
+        let drinkTwoCupsAction = UNNotificationAction(
+            identifier: "DRINK_TWO_CUPS",
+            title: "+2 Cups 💧💧",
+            options: [] // Background execution - no app opening
         )
         
         let snoozeAction = UNNotificationAction(
             identifier: "SNOOZE",
             title: "Snooze 15 min ⏰",
-            options: [.foreground]
+            options: []
         )
         
-        // Create notification category
+        // Create notification category with custom actions
         let waterReminderCategory = UNNotificationCategory(
             identifier: "WATER_REMINDER",
-            actions: [drinkWaterAction, snoozeAction],
+            actions: [drinkOneCupAction, drinkTwoCupsAction, snoozeAction],
             intentIdentifiers: [],
             options: [.customDismissAction]
         )
@@ -61,13 +109,488 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
-    func scheduleWaterReminder(at date: Date) {
+    // MARK: - Direct Water Intake Recording
+    private func handleWaterIntakeAction(amount: Double) {
+        print("🔔 HandleWaterIntakeAction called with amount: \(amount)")
+        
+        // Record the water intake first
+        recordWaterIntakeDirectly(amount: amount)
+        
+        // Don't try to open the app from notification action - it has limitations
+        // Instead, just record the action and let the user manually open the app
+        // The app will handle the reset when it becomes active
+        print("📱 Water intake recorded. User can manually open app to see updated progress.")
+    }
+    
+    private func openApp() {
+        print("📱 Attempting to open app...")
+        
+        // Set a flag in UserDefaults to indicate user tapped +1/+2
+        UserDefaults.standard.set(true, forKey: "notificationActionTapped")
+        UserDefaults.standard.synchronize()
+        
+        // Try to open the app using URL scheme
+        if let url = URL(string: "waterreminder://open") {
+            DispatchQueue.main.async {
+                if UIApplication.shared.canOpenURL(url) {
+                    UIApplication.shared.open(url, options: [:]) { success in
+                        print("📱 App opened via URL scheme: \(success)")
+                    }
+                } else {
+                    print("📱 Cannot open URL scheme - user will need to manually open app")
+                }
+            }
+        }
+    }
+    
+    private func isFirstTapOfDay() -> Bool {
+        let defaults = UserDefaults.standard
+        let currentIntake = defaults.double(forKey: "currentWaterIntake")
+        
+        // If there's no water intake recorded, this is definitely the first tap of day
+        if currentIntake == 0 {
+            print("🔍 First tap check - No water intake recorded, this is first tap")
+            return true
+        }
+        
+        // Check if we have a lastDrinkTime in UserDefaults
+        let lastDrinkFromDefaults: Date?
+        if let lastDrinkData = defaults.data(forKey: "lastDrinkTime"),
+           let lastDrinkTime = try? JSONDecoder().decode(Date.self, from: lastDrinkData) {
+            lastDrinkFromDefaults = lastDrinkTime
+        } else {
+            lastDrinkFromDefaults = nil
+        }
+        
+        // Use the more recent lastDrinkTime
+        let mostRecentLastDrink = lastDrinkFromDefaults
+        
+        guard let lastDrink = mostRecentLastDrink else {
+            // No last drink time recorded, but there's water intake - don't reset
+            print("🔍 First tap check - No last drink time, but has intake - not first tap")
+            return false
+        }
+        
+        let calendar = Calendar.current
+        let isNewDay = !calendar.isDate(lastDrink, inSameDayAs: Date())
+        
+        print("🔍 First tap check - Current intake: \(currentIntake), Last drink: \(lastDrink), Is new day: \(isNewDay)")
+        
+        return isNewDay
+    }
+    
+    private func openAppForFirstTapOfDay(amount: Double) {
+        print("📱 Opening app for first tap of day")
+        
+        // Reset daily progress first (clear old progress)
+        let defaults = UserDefaults.standard
+        defaults.set(0.0, forKey: "currentWaterIntake")
+        defaults.removeObject(forKey: "lastDrinkTime")
+        defaults.removeObject(forKey: "goalAchievedDate")
+        defaults.set(Date(), forKey: "lastResetDate")
+        defaults.synchronize()
+        
+        // Record the water intake after reset
+        recordWaterIntakeDirectly(amount: amount)
+        
+        // Cancel all pending notifications
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        
+        // Schedule today's remaining notifications and tomorrow's first notification
+        scheduleNotificationsForTodayAndTomorrow()
+        
+        // Open the app
+        DispatchQueue.main.async {
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let window = windowScene.windows.first {
+                window.makeKeyAndVisible()
+            }
+        }
+    }
+    
+    private static var globalSchedulingInProgress = false
+    
+    func scheduleNotificationsForTodayAndTomorrow() {
+        // Prevent multiple rapid calls from ANY source
+        guard !NotificationManager.globalSchedulingInProgress else {
+            print("⏸️ Global notification scheduling already in progress - skipping duplicate call")
+            return
+        }
+        
+        NotificationManager.globalSchedulingInProgress = true
+        print("🔄 SCHEDULING RECURRING DAILY REMINDERS")
+        
+        // Cancel ALL existing notifications
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        // Cancelled all existing notifications
+        
+        // Get current settings
+        let defaults = UserDefaults.standard
+        let interval = defaults.double(forKey: "reminderInterval")
+        let startTime = defaults.double(forKey: "startTime")
+        let endTime = defaults.double(forKey: "endTime")
+        
+        // Fallback to default values if start/end times are 0
+        let actualStartTime = startTime > 0 ? startTime : 8.0  // Default 8 AM
+        let actualEndTime = endTime > 0 ? endTime : 20.0       // Default 8 PM
+        
+        // Ensure we don't exceed iOS 64 notification limit
+        let maxInterval = 1800.0  // 30 minutes minimum to stay within limit
+        let actualInterval = max(interval, maxInterval)
+        
+        print("📊 Settings - Start: \(actualStartTime), End: \(actualEndTime), Original Interval: \(interval), Actual Interval: \(actualInterval)")
+        
+        let today = Date()
+        let calendar = Calendar.current
+        let currentHour = calendar.component(.hour, from: today)
+        
+        // Calculate the first notification time for today (start time)
+        let startHour = Int(actualStartTime)
+        let startMinute = Int((actualStartTime - Double(startHour)) * 60)
+        let firstNotificationToday = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: today) ?? today
+        
+        // Calculate the end time for today
+        let endHour = Int(actualEndTime)
+        let endMinute = Int((actualEndTime - Double(endHour)) * 60)
+        let endTimeToday = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: today) ?? today
+        
+        print("📊 Current time: \(today)")
+        print("📊 First notification today: \(firstNotificationToday)")
+        print("📊 End time today: \(endTimeToday)")
+        
+        // Schedule today's notifications at the specified interval
+        var currentNotificationTime = firstNotificationToday
+        var todayNotificationsScheduled = 0
+        while currentNotificationTime <= endTimeToday {
+            if currentNotificationTime > Date() { // Only schedule future notifications
+                print("📅 Scheduling today's notification for: \(currentNotificationTime)")
+                scheduleWaterReminder(at: currentNotificationTime)
+                todayNotificationsScheduled += 1
+            }
+            currentNotificationTime = currentNotificationTime.addingTimeInterval(actualInterval)
+        }
+        print("📊 Scheduled \(todayNotificationsScheduled) notifications for today")
+        
+        // Immediately check if today's notifications are still there
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.checkTodayNotificationsCount()
+        }
+        
+        // Schedule next 1 day with "Good Morning!" notifications (reduced to avoid iOS 64 notification limit)
+        for dayOffset in 1...1 {
+            let futureDate = calendar.date(byAdding: .day, value: dayOffset, to: today) ?? today
+            let firstNotificationFuture = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: futureDate) ?? futureDate
+            let endTimeFuture = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: futureDate) ?? futureDate
+            
+            currentNotificationTime = firstNotificationFuture
+            while currentNotificationTime <= endTimeFuture {
+                print("📅 Scheduling day \(dayOffset) notification for: \(currentNotificationTime)")
+                scheduleTomorrowNotification(at: currentNotificationTime)
+                currentNotificationTime = currentNotificationTime.addingTimeInterval(actualInterval)
+            }
+        }
+        
+        print("✅ Scheduled notifications for today and next 1 day")
+        
+        // Reset the flag after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            NotificationManager.globalSchedulingInProgress = false
+        }
+    }
+    
+    private func recordWaterIntakeDirectly(amount: Double) {
+        print("🔔 RecordWaterIntakeDirectly called with amount: \(amount)")
+        let defaults = UserDefaults.standard
+        
+        // Get current water intake and goal
+        let currentIntake = defaults.double(forKey: "currentWaterIntake")
+        let currentGoal = defaults.double(forKey: "waterIntakeGoal")
+        let newIntake = currentIntake + amount
+        let goalToUse = currentGoal > 0 ? currentGoal : 8.0
+        
+        print("🔔 BEFORE: UserDefaults currentWaterIntake: \(currentIntake)")
+        print("🔔 ADDING: \(amount) cups")
+        print("🔔 AFTER: Should be \(newIntake) cups")
+        
+        // Check if goal was just achieved (wasn't achieved before, but is now)
+        let wasGoalAchieved = currentIntake >= goalToUse
+        let isGoalNowAchieved = newIntake >= goalToUse
+        
+        // Save updated water intake and preserve goal
+        defaults.set(newIntake, forKey: "currentWaterIntake")
+        if currentGoal > 0 {
+            defaults.set(currentGoal, forKey: "waterIntakeGoal")
+        } else {
+            defaults.set(8.0, forKey: "waterIntakeGoal") // Default goal
+        }
+        // Save lastDrinkTime as JSON-encoded Date (same format as WaterReminderManager.saveSettings)
+        if let encoded = try? JSONEncoder().encode(Date()) {
+            defaults.set(encoded, forKey: "lastDrinkTime")
+        }
+        
+        // Add a special marker to indicate this was updated by notification action
+        defaults.set(Date().timeIntervalSince1970, forKey: "lastNotificationActionTime")
+        defaults.set(newIntake, forKey: "lastNotificationActionIntake")
+        
+        defaults.synchronize()
+        
+        print("📊 Water intake updated: \(currentIntake) -> \(newIntake), goal: \(goalToUse)")
+        
+        // Verify the save worked
+        let verifyIntake = defaults.double(forKey: "currentWaterIntake")
+        print("🔔 VERIFICATION: UserDefaults now has: \(verifyIntake) cups")
+        
+        if verifyIntake == newIntake {
+            print("✅ Notification action save SUCCESS")
+        } else {
+            print("❌ Notification action save FAILED - expected \(newIntake), got \(verifyIntake)")
+        }
+        
+        // Send congratulations notification if goal was just achieved
+        if !wasGoalAchieved && isGoalNowAchieved {
+            sendGoalAchievementNotification(currentIntake: newIntake, goal: goalToUse)
+            
+            // Cancel all remaining notifications for today since goal is reached
+            print("🎯 Goal reached! Canceling all remaining notifications for today")
+            cancelRemainingNotificationsForToday()
+        }
+        
+        // Post notification for app to update UI
+        NotificationCenter.default.post(name: NSNotification.Name("WaterIntakeRecorded"), object: ["amount": amount])
+    }
+    
+    // MARK: - Goal Achievement Notification
+    func sendGoalAchievementNotificationFromApp(currentIntake: Double, goal: Double) {
+        sendGoalAchievementNotification(currentIntake: currentIntake, goal: goal)
+    }
+    
+    private func sendGoalAchievementNotification(currentIntake: Double, goal: Double) {
+        print("🎉 Goal achieved! Sending congratulations notification")
+        
+        // Check if we already sent a goal notification today to avoid spam
+        let defaults = UserDefaults.standard
+        let today = Calendar.current.startOfDay(for: Date())
+        let lastGoalNotificationDate = defaults.object(forKey: "lastGoalNotificationDate") as? Date
+        
+        if let lastDate = lastGoalNotificationDate,
+           Calendar.current.isDate(lastDate, inSameDayAs: today) {
+            print("📅 Goal notification already sent today, skipping")
+            return
+        }
+        
+        // Create congratulations notification content
         let content = UNMutableNotificationContent()
+        content.title = "🎉 Congratulations!"
+        content.body = "Amazing! You've reached your daily water goal of \(Int(goal)) cups! Keep up the great work! 💧"
+        content.sound = .default
+        content.badge = NSNumber(value: 1) // Keep badge for goal achievement - it's special!
+        
+        // Add some celebratory emojis to make it feel special
+        let celebrationMessages = [
+            "🎉 Fantastic! You've hit your water goal of \(Int(goal)) cups today! 💪",
+            "🌟 Well done! \(Int(goal)) cups completed - you're crushing your hydration goals! 💧",
+            "🏆 Goal achieved! \(Int(goal)) cups down - your body thanks you! ✨",
+            "🎊 Awesome! You've reached \(Int(goal)) cups today. Stay hydrated, stay healthy! 🌊",
+            "💪 Great job! Daily water goal of \(Int(goal)) cups complete! Keep it up! 🎯"
+        ]
+        
+        content.body = celebrationMessages.randomElement() ?? content.body
+        
+        // Send immediately
+        let request = UNNotificationRequest(
+            identifier: "goal-achievement-\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil // Send immediately
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to send goal achievement notification: \(error.localizedDescription)")
+            } else {
+                print("✅ Goal achievement notification sent successfully!")
+                // Record that we sent a goal notification today
+                defaults.set(today, forKey: "lastGoalNotificationDate")
+            }
+        }
+    }
+    
+    // MARK: - Progress Tracking
+    private func getProgressInfo() -> (current: Double, goal: Double, percentage: Int) {
+        guard let manager = waterReminderManager else {
+            return (0, 8, 0) // Default values
+        }
+        
+        let current = manager.currentWaterIntake
+        let goal = manager.waterIntakeGoal
+        let percentage = Int((current / goal) * 100)
+        
+        return (current, goal, percentage)
+    }
+    
+    private func createDynamicNotificationContent() -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        
+        // Get real-time progress from UserDefaults (updated by notification actions)
+        let progress = getProgressInfoFromUserDefaults()
+        
         content.title = "Time to Hydrate! 💧"
-        content.body = "Stay healthy and drink some water"
+        content.body = "Progress: \(Int(progress.current))/\(Int(progress.goal)) cups (\(progress.percentage)%)"
         content.sound = .default
         content.categoryIdentifier = "WATER_REMINDER"
-        content.badge = NSNumber(value: 1)
+        // Badge removed - will be cleared when app opens
+        
+        print("🔔 Created dynamic notification content with progress: \(Int(progress.current))/\(Int(progress.goal)) cups (\(progress.percentage)%)")
+        
+        return content
+    }
+    
+    private func getProgressInfoFromUserDefaults() -> (current: Double, goal: Double, percentage: Int) {
+        let defaults = UserDefaults.standard
+        
+        // Get current progress from UserDefaults (reset logic is handled by app, not notifications)
+        let current = defaults.double(forKey: "currentWaterIntake")
+        let goal = defaults.double(forKey: "waterIntakeGoal")
+        
+        let percentage = goal > 0 ? Int((current / goal) * 100) : 0
+        
+        print("📊 Notification progress - Current: \(current), Goal: \(goal), Percentage: \(percentage)%")
+        
+        return (current, goal, percentage)
+    }
+    
+    private func shouldResetDailyIntakeForNotifications() -> Bool {
+        let defaults = UserDefaults.standard
+        let currentIntake = defaults.double(forKey: "currentWaterIntake")
+        
+        // If there's no water intake recorded, don't reset
+        if currentIntake == 0 {
+            return false
+        }
+        
+        // Check if we have a lastDrinkTime
+        guard let lastDrinkData = defaults.data(forKey: "lastDrinkTime"),
+              let lastDrinkTime = try? JSONDecoder().decode(Date.self, from: lastDrinkData) else {
+            return false
+        }
+        
+        let calendar = Calendar.current
+        let isNewDay = !calendar.isDate(lastDrinkTime, inSameDayAs: Date())
+        
+        print("🔍 Notification reset check - Last drink: \(lastDrinkTime), Is new day: \(isNewDay)")
+        
+        return isNewDay
+    }
+    
+    func cancelRemainingNotificationsForToday() {
+        print("🚫 Canceling all remaining notifications for today...")
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let todayNotifications = requests.filter { $0.identifier.hasPrefix("water-reminder-") && !$0.identifier.hasPrefix("water-reminder-tomorrow-") }
+            
+            for notification in todayNotifications {
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notification.identifier])
+                print("🚫 Canceled today's notification: \(notification.identifier)")
+            }
+            
+            print("🎯 Canceled \(todayNotifications.count) remaining notifications for today")
+        }
+    }
+    
+    func updateAllPendingNotifications() {
+        print("🔄 Updating all pending notifications with new progress...")
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let recurringNotifications = requests.filter { $0.identifier.hasPrefix("water-reminder-") && !$0.identifier.hasPrefix("water-reminder-tomorrow-") }
+            
+            for notification in recurringNotifications {
+                // Cancel the old notification
+                UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notification.identifier])
+                
+                // Create new content with updated progress
+                let newContent = self.createDynamicNotificationContent()
+                
+                // Recreate the notification with the same trigger but updated content
+                if let trigger = notification.trigger as? UNCalendarNotificationTrigger {
+                    let newRequest = UNNotificationRequest(
+                        identifier: notification.identifier,
+                        content: newContent,
+                        trigger: trigger
+                    )
+                    
+                    UNUserNotificationCenter.current().add(newRequest) { error in
+                        if let error = error {
+                            print("❌ Error updating notification \(notification.identifier): \(error)")
+                        } else {
+                            print("✅ Updated notification \(notification.identifier) with new progress")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func scheduleTomorrowNotification(at date: Date) {
+        // Create notification content for new day (no progress, no actions)
+        let content = createNewDayNotificationContent()
+        
+        // Use timezone-aware date components with local timezone
+        let calendar = Calendar.current
+        let localTimeZone = TimeZone.current
+        var triggerDate = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        triggerDate.timeZone = localTimeZone
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
+        
+        let identifier = "water-reminder-tomorrow-\(Int(date.timeIntervalSince1970))"
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: trigger
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Error scheduling tomorrow notification for \(date): \(error)")
+            } else {
+                let formatter = DateFormatter()
+                formatter.timeZone = localTimeZone
+                formatter.dateStyle = .none
+                formatter.timeStyle = .short
+                let localTime = formatter.string(from: date)
+                print("✅ Scheduled tomorrow notification (new day message) for \(localTime) local time")
+            }
+        }
+    }
+    
+    private func createNotificationContentWithProgress(current: Double, goal: Double) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "Time to Hydrate! 💧"
+        
+        // Calculate percentage
+        let percentage = goal > 0 ? Int((current / goal) * 100) : 0
+        content.body = "Progress: \(Int(current))/\(Int(goal)) cups (\(percentage)%)"
+        
+        content.sound = .default
+        content.categoryIdentifier = "WATER_REMINDER"
+        
+        print("🔔 Created notification content with progress: \(Int(current))/\(Int(goal)) cups (\(percentage)%)")
+        
+        return content
+    }
+    
+    // New function to create notification content for new day (no progress, no actions)
+    private func createNewDayNotificationContent() -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "Good Morning! ☀️"
+        content.body = "Tap to start a new day of hydration!"
+        content.sound = .default
+        // No categoryIdentifier = no custom actions, just default tap
+        print("🔔 Created new day notification content")
+        return content
+    }
+    
+    func scheduleWaterReminder(at date: Date) {
+        let content = createDynamicNotificationContent()
         
         // Use timezone-aware date components with local timezone
         let calendar = Calendar.current
@@ -95,8 +618,13 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
                 let localTime = formatter.string(from: date)
                 print("✅ Scheduled notification for \(localTime) local time")
                 
-                // Verify the notification was actually scheduled
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                // Verify the notification was actually scheduled immediately
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    self.verifyNotificationScheduled(identifier: identifier)
+                }
+                
+                // Also verify after 2 seconds to see if it disappears
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                     self.verifyNotificationScheduled(identifier: identifier)
                 }
             }
@@ -122,6 +650,8 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         let startMinutes = startHour * 60 + startMinute
         let endMinutes = endHour * 60 + endMinute
         let intervalMinutes = Int(interval / 60)
+        
+        print("🔍 DEBUG: Interval calculation - Input: \(interval) seconds, Calculated: \(intervalMinutes) minutes")
         
         guard intervalMinutes > 0 else {
             print("❌ Invalid interval: \(interval) seconds")
@@ -159,12 +689,8 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
             // Create unique identifier for this recurring notification
             let identifier = "recurring-water-reminder-\(hour)-\(minute)"
             
-            let content = UNMutableNotificationContent()
-            content.title = "Time to Hydrate! 💧"
-            content.body = "Stay healthy and drink some water"
-            content.sound = .default
-            content.categoryIdentifier = "WATER_REMINDER"
-            content.badge = NSNumber(value: 1)
+            // Create content that will be updated when notification fires
+            let content = self.createDynamicNotificationContent()
             
             let request = UNNotificationRequest(
                 identifier: identifier,
@@ -193,13 +719,83 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         
         UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
             hasRecurring = requests.contains { request in
-                request.identifier.hasPrefix("recurring-water-reminder-")
+                request.identifier.hasPrefix("recurring-water-reminder-") ||
+                request.identifier.hasPrefix("water-reminder-")
             }
             semaphore.signal()
         }
         
         semaphore.wait()
         return hasRecurring
+    }
+    
+    // MARK: - Async version for better UI performance
+    func hasRecurringNotificationsAsync(completion: @escaping (Bool) -> Void) {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let hasRecurring = requests.contains { request in
+                request.identifier.hasPrefix("recurring-water-reminder-") ||
+                request.identifier.hasPrefix("water-reminder-")
+            }
+            DispatchQueue.main.async {
+                completion(hasRecurring)
+            }
+        }
+    }
+    
+    // MARK: - Enhanced notification verification
+    func verifyAndRestoreNotifications(startTime: Date, endTime: Date, interval: TimeInterval, completion: @escaping (Bool) -> Void) {
+        print("🔍 VERIFYING NOTIFICATION STATUS...")
+        
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let recurringNotifications = requests.filter { $0.identifier.hasPrefix("recurring-water-reminder-") }
+            
+            print("📊 Found \(recurringNotifications.count) recurring notifications")
+            
+            // Check if we have the expected number of notifications
+            let calendar = Calendar.current
+            let startHour = calendar.component(.hour, from: startTime)
+            let startMinute = calendar.component(.minute, from: startTime)
+            let endHour = calendar.component(.hour, from: endTime)
+            let endMinute = calendar.component(.minute, from: endTime)
+            
+            let startMinutes = startHour * 60 + startMinute
+            let endMinutes = endHour * 60 + endMinute
+            let intervalMinutes = Int(interval / 60)
+            
+            let expectedNotifications = intervalMinutes > 0 ? (endMinutes - startMinutes) / intervalMinutes + 1 : 0
+            
+            print("📅 Expected \(expectedNotifications) notifications, found \(recurringNotifications.count)")
+            
+            if recurringNotifications.count < expectedNotifications {
+                print("⚠️ Missing notifications detected, rescheduling...")
+                DispatchQueue.main.async {
+                    self.scheduleRecurringWaterReminders(startTime: startTime, endTime: endTime, interval: interval)
+                    completion(true)
+                }
+            } else {
+                print("✅ All notifications are properly scheduled")
+                DispatchQueue.main.async {
+                    completion(true)
+                }
+            }
+        }
+    }
+    
+    private func checkTodayNotificationsCount() {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let todayNotifications = requests.filter { $0.identifier.hasPrefix("water-reminder-") && !$0.identifier.hasPrefix("water-reminder-tomorrow-") }
+            let tomorrowNotifications = requests.filter { $0.identifier.hasPrefix("water-reminder-tomorrow-") }
+            
+            print("🔍 IMMEDIATE CHECK: Total: \(requests.count), Today: \(todayNotifications.count), Tomorrow: \(tomorrowNotifications.count)")
+            
+            if todayNotifications.count == 0 && requests.count > 0 {
+                print("❌ CRITICAL: Today's notifications disappeared immediately after scheduling!")
+                print("🔍 Available notifications:")
+                for request in requests.prefix(5) {
+                    print("  - \(request.identifier): \(request.content.title)")
+                }
+            }
+        }
     }
     
     private func verifyNotificationScheduled(identifier: String) {
@@ -209,6 +805,9 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
                 print("✅ Verification: Notification '\(identifier)' is properly scheduled")
             } else {
                 print("❌ Verification: Notification '\(identifier)' was NOT found in pending requests")
+                print("🔍 Debug: Total pending requests: \(requests.count)")
+                print("🔍 Debug: Today's notifications found: \(requests.filter { $0.identifier.hasPrefix("water-reminder-") && !$0.identifier.hasPrefix("water-reminder-tomorrow-") }.count)")
+                print("🔍 Debug: Tomorrow's notifications found: \(requests.filter { $0.identifier.hasPrefix("water-reminder-tomorrow-") }.count)")
             }
         }
     }
@@ -257,12 +856,35 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
+    func scheduleTestNotificationDirect(identifier: String, delay: Int) {
+        print("🧪 Scheduling direct test notification with ID: \(identifier), delay: \(delay) seconds")
+        
+        let content = createDynamicNotificationContent()
+        content.title = "🧪 Test Notification"
+        content.body = "This is a test notification! Tap +1 or +2 to log water intake."
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(delay), repeats: false)
+        let request = UNNotificationRequest(
+            identifier: identifier,
+            content: content,
+            trigger: trigger
+        )
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("❌ Failed to schedule test notification: \(error.localizedDescription)")
+            } else {
+                print("✅ Test notification scheduled successfully with ID: \(identifier)")
+            }
+        }
+    }
+    
     private func sendImmediateNotification() {
         let content = UNMutableNotificationContent()
         content.title = "🚰 IMMEDIATE Test"
         content.body = "This should appear immediately!"
         content.sound = .default
-        content.badge = NSNumber(value: 1)
+        // Badge removed - will be cleared when app opens
         
         // Send immediately (no trigger)
         let request = UNNotificationRequest(
@@ -285,7 +907,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         content.title = "⏰ 5-Second Test"
         content.body = "This should appear in 5 seconds!"
         content.sound = .default
-        content.badge = NSNumber(value: 1)
+        // Badge removed - will be cleared when app opens
         
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
         let request = UNNotificationRequest(
@@ -308,7 +930,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         content.title = "📅 Calendar Test"
         content.body = "This should appear in 10 seconds!"
         content.sound = .default
-        content.badge = NSNumber(value: 1)
+        // Badge removed - will be cleared when app opens
         
         // Schedule for 10 seconds from now
         let calendar = Calendar.current
@@ -445,18 +1067,45 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         // Show notification even when app is in foreground
-        completionHandler([.alert, .sound, .badge])
+        if #available(iOS 14.0, *) {
+            completionHandler([.banner, .sound, .badge])
+        } else {
+            completionHandler([.alert, .sound, .badge])
+        }
         print("Notification will present in foreground: \(notification.request.content.title)")
     }
     
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        print("Notification action received: \(response.actionIdentifier)")
+        print("🔔 Notification action received: \(response.actionIdentifier)")
         
         switch response.actionIdentifier {
-        case "DRINK_WATER":
-            print("✅ User tapped 'Drink Water' - recording water intake")
-            // You can add logic here to record water intake
-            NotificationCenter.default.post(name: NSNotification.Name("RecordWaterIntake"), object: nil)
+        case "DRINK_ONE_CUP":
+            print("✅ User tapped '+1 Cup' - updating progress immediately")
+            // Check if this is the first tap of the day and handle reset
+            if isFirstTapOfDay() {
+                print("📱 First tap of day detected from +1 action - resetting daily progress")
+                openAppForFirstTapOfDay(amount: 1.0)
+            } else {
+                // Use the proper function that handles goal achievement notifications
+                recordWaterIntakeDirectly(amount: 1.0)
+                
+                // Update all pending notifications with new progress
+                updateAllPendingNotifications()
+            }
+            
+        case "DRINK_TWO_CUPS":
+            print("✅ User tapped '+2 Cups' - updating progress immediately")
+            // Check if this is the first tap of the day and handle reset
+            if isFirstTapOfDay() {
+                print("📱 First tap of day detected from +2 action - resetting daily progress")
+                openAppForFirstTapOfDay(amount: 2.0)
+            } else {
+                // Use the proper function that handles goal achievement notifications
+                recordWaterIntakeDirectly(amount: 2.0)
+                
+                // Update all pending notifications with new progress
+                updateAllPendingNotifications()
+            }
             
         case "SNOOZE":
             print("⏰ User tapped 'Snooze' - rescheduling notification")
@@ -466,6 +1115,15 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
             
         case UNNotificationDefaultActionIdentifier:
             print("📱 User tapped notification - opening app")
+            // Check if this is the first tap of the day and handle accordingly
+            if isFirstTapOfDay() {
+                print("📱 First tap of day detected - will reset daily progress when app opens")
+                // Set a flag to indicate this is the first tap of the day
+                UserDefaults.standard.set(true, forKey: "isFirstTapOfDay")
+                UserDefaults.standard.synchronize()
+            } else {
+                print("📱 Regular notification tap - no reset needed")
+            }
             
         case UNNotificationDismissActionIdentifier:
             print("❌ User dismissed notification")
