@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		5E5282EFDF70452640AE0DF6 /* WaterReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A9C937905F478F2AF73A53 /* WaterReminderManager.swift */; };
+		6EB514149C37242B40BD24FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D28A2738218462EBB7D1D36F /* Assets.xcassets */; };
 		7210B47F1B630AAFC66CBA3B /* RatingRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */; };
 		741AE4AAF891A73BC6FB5A6D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033278CBBA454138F6D889C3 /* SettingsView.swift */; };
 		7E10C0FD8285E5498E2F8B3C /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB44D550470236A7C13BE1A3 /* NotificationManager.swift */; };
@@ -15,7 +16,6 @@
 		DAD651FD96838940B979F7C8 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A68A785E03CAFCE30C8FD33C /* LaunchScreen.storyboard */; };
 		E00252BCD63A40806E0896A3 /* RatingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01BC86EC9E743E25600C1420 /* RatingManager.swift */; };
 		E82ED631B29A8A364CB7B747 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F31DF40BACE1EFADF49763 /* ContentView.swift */; };
-		ASSETS123456789012345678 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ASSETREF123456789012345 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,11 +25,11 @@
 		A68A785E03CAFCE30C8FD33C /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C3F31DF40BACE1EFADF49763 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingRequestView.swift; sourceTree = "<group>"; };
+		D28A2738218462EBB7D1D36F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DB44D550470236A7C13BE1A3 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		EB9908006DCD950D6A125C3F /* WaterReminderApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WaterReminderApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB9908006DCD950D6A125C3F /* WaterReminderApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WaterReminderApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDC43324208D2BCEDF1ED828 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F59B7EABDC9D7F1AFC065209 /* WaterReminderAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderAppApp.swift; sourceTree = "<group>"; };
-		ASSETREF123456789012345 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -68,7 +68,7 @@
 		F3E14520DC1F942F76254F3B = {
 			isa = PBXGroup;
 			children = (
-				ASSETREF123456789012345 /* Assets.xcassets */,
+				D28A2738218462EBB7D1D36F /* Assets.xcassets */,
 				32858681967BCEFCE8C1EEF4 /* Sources */,
 				BBF3732D7E9A78608C8A3E45 /* Products */,
 			);
@@ -119,6 +119,7 @@
 			);
 			mainGroup = F3E14520DC1F942F76254F3B;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -132,7 +133,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				ASSETS123456789012345678 /* Assets.xcassets in Resources */,
+				6EB514149C37242B40BD24FC /* Assets.xcassets in Resources */,
 				DAD651FD96838940B979F7C8 /* LaunchScreen.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -165,8 +166,8 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = X3BKBK8VYL;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -174,7 +175,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.whio.waterreminder.app;
 				PRODUCT_NAME = WaterReminderApp;
 				SDKROOT = iphoneos;
@@ -246,8 +247,8 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = X3BKBK8VYL;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -255,7 +256,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2;
+				MARKETING_VERSION = 1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.whio.waterreminder.app;
 				PRODUCT_NAME = WaterReminderApp;
 				SDKROOT = iphoneos;
