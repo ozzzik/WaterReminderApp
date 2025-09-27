@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		36698563B5321433AECF299D /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1914667C4D41E9A1716B6F11 /* PaywallView.swift */; };
+		3F88BC4170F9C9239FF29CA1 /* TrialBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6861DDB612B991667875F9 /* TrialBannerView.swift */; };
+		4C0425E7D0C36945939A9AF9 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5C4BA48FF7BFDB821A1A809 /* SubscriptionManager.swift */; };
 		5E5282EFDF70452640AE0DF6 /* WaterReminderManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A9C937905F478F2AF73A53 /* WaterReminderManager.swift */; };
 		6EB514149C37242B40BD24FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D28A2738218462EBB7D1D36F /* Assets.xcassets */; };
 		7210B47F1B630AAFC66CBA3B /* RatingRequestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */; };
@@ -16,17 +19,22 @@
 		DAD651FD96838940B979F7C8 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A68A785E03CAFCE30C8FD33C /* LaunchScreen.storyboard */; };
 		E00252BCD63A40806E0896A3 /* RatingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01BC86EC9E743E25600C1420 /* RatingManager.swift */; };
 		E82ED631B29A8A364CB7B747 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3F31DF40BACE1EFADF49763 /* ContentView.swift */; };
+		F82A616518C533871F8EB2A6 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16AC04C4E5B2B7E34579E968 /* SubscriptionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		01BC86EC9E743E25600C1420 /* RatingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingManager.swift; sourceTree = "<group>"; };
 		033278CBBA454138F6D889C3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		0F6861DDB612B991667875F9 /* TrialBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrialBannerView.swift; sourceTree = "<group>"; };
+		16AC04C4E5B2B7E34579E968 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
+		1914667C4D41E9A1716B6F11 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		27A9C937905F478F2AF73A53 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
 		A68A785E03CAFCE30C8FD33C /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C3F31DF40BACE1EFADF49763 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingRequestView.swift; sourceTree = "<group>"; };
 		D28A2738218462EBB7D1D36F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DB44D550470236A7C13BE1A3 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		E5C4BA48FF7BFDB821A1A809 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
 		EB9908006DCD950D6A125C3F /* WaterReminderApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = WaterReminderApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EDC43324208D2BCEDF1ED828 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F59B7EABDC9D7F1AFC065209 /* WaterReminderAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderAppApp.swift; sourceTree = "<group>"; };
@@ -47,9 +55,13 @@
 				C3F31DF40BACE1EFADF49763 /* ContentView.swift */,
 				EDC43324208D2BCEDF1ED828 /* Info.plist */,
 				DB44D550470236A7C13BE1A3 /* NotificationManager.swift */,
+				1914667C4D41E9A1716B6F11 /* PaywallView.swift */,
 				01BC86EC9E743E25600C1420 /* RatingManager.swift */,
 				C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */,
 				033278CBBA454138F6D889C3 /* SettingsView.swift */,
+				E5C4BA48FF7BFDB821A1A809 /* SubscriptionManager.swift */,
+				16AC04C4E5B2B7E34579E968 /* SubscriptionView.swift */,
+				0F6861DDB612B991667875F9 /* TrialBannerView.swift */,
 				F59B7EABDC9D7F1AFC065209 /* WaterReminderAppApp.swift */,
 				27A9C937905F478F2AF73A53 /* WaterReminderManager.swift */,
 				037083C3D2EE144C0FC8B5D4 /* Resources */,
@@ -147,9 +159,13 @@
 			files = (
 				E82ED631B29A8A364CB7B747 /* ContentView.swift in Sources */,
 				7E10C0FD8285E5498E2F8B3C /* NotificationManager.swift in Sources */,
+				36698563B5321433AECF299D /* PaywallView.swift in Sources */,
 				E00252BCD63A40806E0896A3 /* RatingManager.swift in Sources */,
 				7210B47F1B630AAFC66CBA3B /* RatingRequestView.swift in Sources */,
 				741AE4AAF891A73BC6FB5A6D /* SettingsView.swift in Sources */,
+				4C0425E7D0C36945939A9AF9 /* SubscriptionManager.swift in Sources */,
+				F82A616518C533871F8EB2A6 /* SubscriptionView.swift in Sources */,
+				3F88BC4170F9C9239FF29CA1 /* TrialBannerView.swift in Sources */,
 				9CF243CE21FF39A666BF3A7F /* WaterReminderAppApp.swift in Sources */,
 				5E5282EFDF70452640AE0DF6 /* WaterReminderManager.swift in Sources */,
 			);
@@ -166,7 +182,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = X3BKBK8VYL;
+                DEVELOPMENT_TEAM = X3BKBK8VYL;
 				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
@@ -247,7 +263,7 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = X3BKBK8VYL;
+                DEVELOPMENT_TEAM = X3BKBK8VYL;
 				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;

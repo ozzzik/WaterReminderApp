@@ -4,15 +4,23 @@ struct ContentView: View {
     @EnvironmentObject var waterReminderManager: WaterReminderManager
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var ratingManager: RatingManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var showingSettings = false
     @State private var showingAddWater = false
     @State private var showingNotificationSent = false
     @State private var hasRecurringNotifications = false
+    @State private var showingPaywall = false
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 30) {
+                // Trial Banner
+                if subscriptionManager.isTrialActive {
+                    TrialBannerView()
+                        .padding(.horizontal)
+                }
+                
                 // Header
                 VStack(spacing: 10) {
                     Text("Water Reminder")
@@ -195,6 +203,10 @@ struct ContentView: View {
                     .environmentObject(waterReminderManager)
                     .environmentObject(notificationManager)
             }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
+                    .environmentObject(subscriptionManager)
+            }
             .onAppear {
                 updateRecurringNotificationStatus()
                 setupNotificationObservers()
@@ -294,13 +306,19 @@ struct ContentView: View {
 
 struct QuickAddButton: View {
     @EnvironmentObject var waterReminderManager: WaterReminderManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     let amount: Double
     let title: String
     let subtitle: String
+    @State private var showingPaywall = false
     
     var body: some View {
         Button(action: {
-            waterReminderManager.recordWaterIntake(amount: amount)
+            if subscriptionManager.isSubscribed || subscriptionManager.isTrialActive {
+                waterReminderManager.recordWaterIntake(amount: amount)
+            } else {
+                showingPaywall = true
+            }
         }) {
             VStack(spacing: 5) {
                 Text(title)
@@ -319,6 +337,10 @@ struct QuickAddButton: View {
                 )
             )
             .cornerRadius(12)
+        }
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
+                .environmentObject(subscriptionManager)
         }
     }
 }

@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject var waterReminderManager: WaterReminderManager
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var ratingManager: RatingManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedIntervalIndex = 0
@@ -263,6 +264,41 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
                 
+                Section("Subscription") {
+                    if subscriptionManager.isSubscribed {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Premium Active")
+                                .fontWeight(.semibold)
+                            Spacer()
+                        }
+                    } else if subscriptionManager.isTrialActive {
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .foregroundColor(.orange)
+                            VStack(alignment: .leading) {
+                                Text("Free Trial")
+                                    .fontWeight(.semibold)
+                                Text("\(subscriptionManager.trialDaysRemaining) days left")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: "star.fill")
+                                .foregroundColor(.yellow)
+                            Text("Upgrade to Premium")
+                            Spacer()
+                            Button("Subscribe") {
+                                // This would open the paywall
+                            }
+                            .foregroundColor(.blue)
+                        }
+                    }
+                }
                 
                 Section("About") {
                     HStack {
