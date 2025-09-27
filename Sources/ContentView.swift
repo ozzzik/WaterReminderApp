@@ -83,13 +83,13 @@ struct ContentView: View {
                 // Reminder Status
                 VStack(spacing: 15) {
                     HStack {
-                        Image(systemName: waterReminderManager.isReminderEnabled ? "bell.fill" : "bell.slash")
-                            .foregroundColor(waterReminderManager.isReminderEnabled ? .green : .red)
+                        Image(systemName: waterReminderManager.isReminderEnabled && (subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive) ? "bell.fill" : "bell.slash")
+                            .foregroundColor(waterReminderManager.isReminderEnabled && (subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive) ? .green : .red)
                         
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Reminders")
                                 .font(.headline)
-                            Text(waterReminderManager.isReminderEnabled ? "Active" : "Inactive")
+                            Text(waterReminderManager.isReminderEnabled && (subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive) ? "Active" : "Inactive")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -156,7 +156,7 @@ struct ContentView: View {
                         .cornerRadius(12)
                     }
                     
-                    if waterReminderManager.isReminderEnabled {
+                    if waterReminderManager.isReminderEnabled && (subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive) {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Reminder Schedule")
                                 .font(.subheadline)
