@@ -1,49 +1,16 @@
 {
-  "identifier" : "WaterReminderConfiguration_v2",
+  "identifier" : "WaterReminderConfig_v3",
   "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
-    {
-      "displayPrice" : "1.00",
-      "familyShareable" : false,
-      "internalID" : "1234567890",
-      "localizations" : [
-        {
-          "description" : "Monthly premium subscription with unlimited access to all features",
-          "displayName" : "Premium Monthly",
-          "locale" : "en_US"
-        }
-      ],
-      "period" : "P1M",
-      "productID" : "com.whio.waterreminder.monthly",
-      "referenceName" : "Premium Monthly",
-      "subscriptionGroupIdentifier" : "21482456",
-      "type" : "RecurringSubscription"
-    },
-    {
-      "displayPrice" : "10.00",
-      "familyShareable" : false,
-      "internalID" : "1234567891",
-      "localizations" : [
-        {
-          "description" : "Annual premium subscription with unlimited access to all features. Save 17% compared to monthly subscription.",
-          "displayName" : "Premium Yearly",
-          "locale" : "en_US"
-        }
-      ],
-      "period" : "P1Y",
-      "productID" : "com.whio.waterreminder.yearly",
-      "referenceName" : "Premium Yearly",
-      "subscriptionGroupIdentifier" : "21482456",
-      "type" : "RecurringSubscription"
-    }
+
   ],
   "settings" : {
-    "_applicationInternalID" : "com.whio.waterreminder.app",
-    "_developerTeamID" : "YOUR_TEAM_ID",
+    "_applicationInternalID" : "1234567890",
+    "_developerTeamID" : "X3BKBK8VYL",
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 738892801.0,
+    "_lastSynchronizedDate" : 738892802.0,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
@@ -99,12 +66,12 @@
       "id" : "21482456",
       "localizations" : [
         {
-          "description" : "Premium subscription for Water Reminder app",
-          "displayName" : "Premium",
+          "description" : "Premium subscription group for Water Reminder App",
+          "displayName" : "Premium Features",
           "locale" : "en_US"
         }
       ],
-      "name" : "Premium",
+      "name" : "Premium Features",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -140,7 +107,7 @@
           ],
           "displayPrice" : "10.00",
           "familyShareable" : false,
-          "groupNumber" : 1,
+          "groupNumber" : 2,
           "internalID" : "1234567891",
           "introductoryOffer" : null,
           "localizations" : [
