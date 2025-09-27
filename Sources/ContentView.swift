@@ -47,7 +47,9 @@ struct ContentView: View {
                         .animation(.easeInOut(duration: 1.0), value: waterReminderManager.getProgressPercentage())
                     
                     VStack(spacing: 5) {
-                        Text("\(Int(waterReminderManager.currentWaterIntake))")
+                        Text(waterReminderManager.currentWaterIntake == floor(waterReminderManager.currentWaterIntake) ? 
+                             "\(Int(waterReminderManager.currentWaterIntake))" : 
+                             String(format: "%.1f", waterReminderManager.currentWaterIntake))
                             .font(.system(size: 40, weight: .bold))
                             .foregroundColor(.blue)
                         

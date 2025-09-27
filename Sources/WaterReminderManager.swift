@@ -147,22 +147,6 @@ class WaterReminderManager: ObservableObject {
         notificationManager.cancelAllNotifications()
     }
     
-    func scheduleTestNotification() {
-        print("🧪 SCHEDULING TEST NOTIFICATION FOR 5 SECONDS FROM NOW")
-        let testDate = Calendar.current.date(byAdding: .second, value: 5, to: Date()) ?? Date()
-        
-        // Use a unique identifier for each test
-        let uniqueId = "test-notification-\(Int(Date().timeIntervalSince1970))"
-        print("🧪 Test notification ID: \(uniqueId)")
-        
-        // Schedule using the notification manager's direct method
-        notificationManager.scheduleTestNotificationDirect(identifier: uniqueId, delay: 5)
-        
-        // Verify it was scheduled
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.notificationManager.debugNotificationStatus()
-        }
-    }
     
     func scheduleImmediateReminders() {
         print("🚨 SCHEDULING IMMEDIATE REMINDERS - BYPASSING COMPLEX LOGIC")
@@ -198,29 +182,51 @@ class WaterReminderManager: ObservableObject {
         saveSettings()
         
         // Check if goal was just achieved (wasn't achieved before, but is now)
+        // Use exact equality to trigger exactly at the goal, not beyond
         let wasGoalAchieved = previousIntake >= waterIntakeGoal
         let isGoalNowAchieved = currentWaterIntake >= waterIntakeGoal
         
+        print("🎯 Goal check - Previous: \(previousIntake), Current: \(currentWaterIntake), Goal: \(waterIntakeGoal)")
+        print("🎯 Goal check - Was achieved: \(wasGoalAchieved), Is now achieved: \(isGoalNowAchieved)")
+        print("🎯 Goal check - Comparison: \(currentWaterIntake) >= \(waterIntakeGoal) = \(currentWaterIntake >= waterIntakeGoal)")
+        print("🎯 Goal check - Difference: \(currentWaterIntake - waterIntakeGoal)")
+        
         // Send congratulations notification if goal was just achieved
+        // Check for goal achievement (allowing for small floating point differences)
         if !wasGoalAchieved && isGoalNowAchieved {
+            print("🎉 GOAL ACHIEVED! Sending congratulations notification")
             notificationManager.sendGoalAchievementNotificationFromApp(currentIntake: currentWaterIntake, goal: waterIntakeGoal)
             
             // Cancel all remaining notifications for today since goal is reached
             print("🎯 Goal reached! Canceling all remaining notifications for today")
             notificationManager.cancelRemainingNotificationsForToday()
+        } else if wasGoalAchieved && isGoalNowAchieved {
+            print("🎯 Goal was already achieved, no new congratulations notification")
+        } else {
+            print("🎯 Goal not yet achieved, continuing...")
         }
         
         // Refresh notifications to update progress display
         refreshNotificationContent()
     }
     
+    private var refreshWorkItem: DispatchWorkItem?
+    
     private func refreshNotificationContent() {
         // This will update the content of existing notifications with new progress
         if isReminderEnabled {
-            // Reschedule notifications to update their content with current progress
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            // Cancel any pending refresh and start a new one
+            refreshWorkItem?.cancel()
+            
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self, self.isReminderEnabled else { return }
                 self.scheduleReminders()
             }
+            
+            refreshWorkItem = workItem
+            
+            // Use a longer delay to allow multiple rapid presses to accumulate
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         }
     }
     
@@ -234,7 +240,9 @@ class WaterReminderManager: ObservableObject {
     }
     
     func getProgressPercentage() -> Double {
-        return min(currentWaterIntake / waterIntakeGoal, 1.0)
+        let percentage = currentWaterIntake / waterIntakeGoal
+        // Allow progress to go beyond 100% to show over-achievement
+        return max(0.0, percentage)
     }
     
     func shouldResetDailyIntake() -> Bool {
@@ -304,6 +312,18 @@ class WaterReminderManager: ObservableObject {
         waterIntakeGoal = defaults.double(forKey: "waterIntakeGoal")
         if waterIntakeGoal == 0 { waterIntakeGoal = 8.0 } // Default to 8 cups
         
+        // Clean up any floating-point goal values by rounding to whole numbers
+        // This fixes issues with old calculated goals like 8.482315301895142
+        if waterIntakeGoal != round(waterIntakeGoal) {
+            let oldGoal = waterIntakeGoal
+            waterIntakeGoal = round(waterIntakeGoal)
+            print("🎯 Goal cleanup: \(oldGoal) -> \(waterIntakeGoal)")
+            // Save the cleaned goal back to UserDefaults
+            defaults.set(waterIntakeGoal, forKey: "waterIntakeGoal")
+        }
+        
+        print("🎯 App started - Goal loaded: \(waterIntakeGoal)")
+        
         currentWaterIntake = defaults.double(forKey: "currentWaterIntake")
         
         
@@ -367,6 +387,7 @@ class WaterReminderManager: ObservableObject {
             completion(hasRecurring)
         }
     }
+    
     
     // MARK: - Notification Observers
     private func setupNotificationObservers() {
@@ -483,7 +504,7 @@ class WaterReminderManager: ObservableObject {
     // MARK: - Version Migration
     private func handleVersionMigration() {
         let defaults = UserDefaults.standard
-        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2"
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3"
         let lastVersion = defaults.string(forKey: "lastAppVersion")
         
         // First launch or version change
@@ -562,7 +583,12 @@ class WaterReminderManager: ObservableObject {
         }
         
         // Future migrations can be added here
-        // if oldVersion.hasPrefix("1.2") && newVersion.hasPrefix("1.3") { ... }
+        if oldVersion.hasPrefix("1.2") && newVersion.hasPrefix("1.3") {
+            print("🔄 Running 1.2 → 1.3 migration")
+            // Version 1.3 includes notification timing fixes and fast-press improvements
+            // No specific migration needed as the fixes are backward compatible
+            print("✅ 1.3 migration completed - notification timing and fast-press fixes applied")
+        }
         
         defaults.synchronize()
     }

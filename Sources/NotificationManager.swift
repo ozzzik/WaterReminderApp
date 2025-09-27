@@ -209,15 +209,19 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     private static var globalSchedulingInProgress = false
+    private static var lastSchedulingTime: TimeInterval = 0
     
     func scheduleNotificationsForTodayAndTomorrow() {
-        // Prevent multiple rapid calls from ANY source
-        guard !NotificationManager.globalSchedulingInProgress else {
-            print("⏸️ Global notification scheduling already in progress - skipping duplicate call")
+        let currentTime = Date().timeIntervalSince1970
+        
+        // Prevent multiple rapid calls within 0.2 seconds
+        guard currentTime - NotificationManager.lastSchedulingTime > 0.2 else {
+            print("⏸️ Scheduling too frequent - skipping duplicate call (last: \(NotificationManager.lastSchedulingTime), current: \(currentTime))")
             return
         }
         
         NotificationManager.globalSchedulingInProgress = true
+        NotificationManager.lastSchedulingTime = currentTime
         print("🔄 SCHEDULING RECURRING DAILY REMINDERS")
         
         // Cancel ALL existing notifications
@@ -227,12 +231,29 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         // Get current settings
         let defaults = UserDefaults.standard
         let interval = defaults.double(forKey: "reminderInterval")
-        let startTime = defaults.double(forKey: "startTime")
-        let endTime = defaults.double(forKey: "endTime")
         
-        // Fallback to default values if start/end times are 0
-        let actualStartTime = startTime > 0 ? startTime : 8.0  // Default 8 AM
-        let actualEndTime = endTime > 0 ? endTime : 20.0       // Default 8 PM
+        // Read start and end times as Date objects (stored as JSON data)
+        let calendar = Calendar.current
+        let actualStartTime: Double
+        let actualEndTime: Double
+        
+        if let startTimeData = defaults.data(forKey: "startTime"),
+           let startTimeDate = try? JSONDecoder().decode(Date.self, from: startTimeData) {
+            let hour = calendar.component(.hour, from: startTimeDate)
+            let minute = calendar.component(.minute, from: startTimeDate)
+            actualStartTime = Double(hour) + Double(minute) / 60.0
+        } else {
+            actualStartTime = 8.0  // Default 8 AM
+        }
+        
+        if let endTimeData = defaults.data(forKey: "endTime"),
+           let endTimeDate = try? JSONDecoder().decode(Date.self, from: endTimeData) {
+            let hour = calendar.component(.hour, from: endTimeDate)
+            let minute = calendar.component(.minute, from: endTimeDate)
+            actualEndTime = Double(hour) + Double(minute) / 60.0
+        } else {
+            actualEndTime = 20.0   // Default 8 PM
+        }
         
         // Ensure we don't exceed iOS 64 notification limit
         let maxInterval = 1800.0  // 30 minutes minimum to stay within limit
@@ -241,8 +262,6 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         print("📊 Settings - Start: \(actualStartTime), End: \(actualEndTime), Original Interval: \(interval), Actual Interval: \(actualInterval)")
         
         let today = Date()
-        let calendar = Calendar.current
-        let currentHour = calendar.component(.hour, from: today)
         
         // Calculate the first notification time for today (start time)
         let startHour = Int(actualStartTime)
@@ -293,7 +312,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         print("✅ Scheduled notifications for today and next 1 day")
         
         // Reset the flag after a short delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             NotificationManager.globalSchedulingInProgress = false
         }
     }
@@ -315,6 +334,11 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         // Check if goal was just achieved (wasn't achieved before, but is now)
         let wasGoalAchieved = currentIntake >= goalToUse
         let isGoalNowAchieved = newIntake >= goalToUse
+        
+        print("🔔 Goal check - Previous: \(currentIntake), Current: \(newIntake), Goal: \(goalToUse)")
+        print("🔔 Goal check - Was achieved: \(wasGoalAchieved), Is now achieved: \(isGoalNowAchieved)")
+        print("🔔 Goal check - Comparison: \(newIntake) >= \(goalToUse) = \(newIntake >= goalToUse)")
+        print("🔔 Goal check - Difference: \(newIntake - goalToUse)")
         
         // Save updated water intake and preserve goal
         defaults.set(newIntake, forKey: "currentWaterIntake")
@@ -347,12 +371,18 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
         
         // Send congratulations notification if goal was just achieved
+        // Check for goal achievement (allowing for small floating point differences)
         if !wasGoalAchieved && isGoalNowAchieved {
+            print("🎉 GOAL ACHIEVED FROM NOTIFICATION ACTION! Sending congratulations notification")
             sendGoalAchievementNotification(currentIntake: newIntake, goal: goalToUse)
             
             // Cancel all remaining notifications for today since goal is reached
             print("🎯 Goal reached! Canceling all remaining notifications for today")
             cancelRemainingNotificationsForToday()
+        } else if wasGoalAchieved && isGoalNowAchieved {
+            print("🎯 Goal was already achieved, no new congratulations notification")
+        } else {
+            print("🎯 Goal not yet achieved, continuing...")
         }
         
         // Post notification for app to update UI
@@ -366,17 +396,23 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     
     private func sendGoalAchievementNotification(currentIntake: Double, goal: Double) {
         print("🎉 Goal achieved! Sending congratulations notification")
+        print("🎉 Current intake: \(currentIntake), Goal: \(goal)")
         
         // Check if we already sent a goal notification today to avoid spam
         let defaults = UserDefaults.standard
         let today = Calendar.current.startOfDay(for: Date())
         let lastGoalNotificationDate = defaults.object(forKey: "lastGoalNotificationDate") as? Date
         
+        print("🎉 Today: \(today)")
+        print("🎉 Last goal notification date: \(lastGoalNotificationDate?.description ?? "nil")")
+        
         if let lastDate = lastGoalNotificationDate,
            Calendar.current.isDate(lastDate, inSameDayAs: today) {
             print("📅 Goal notification already sent today, skipping")
             return
         }
+        
+        print("🎉 Proceeding with congratulations notification...")
         
         // Create congratulations notification content
         let content = UNMutableNotificationContent()
@@ -856,28 +892,6 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         }
     }
     
-    func scheduleTestNotificationDirect(identifier: String, delay: Int) {
-        print("🧪 Scheduling direct test notification with ID: \(identifier), delay: \(delay) seconds")
-        
-        let content = createDynamicNotificationContent()
-        content.title = "🧪 Test Notification"
-        content.body = "This is a test notification! Tap +1 or +2 to log water intake."
-        
-        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(delay), repeats: false)
-        let request = UNNotificationRequest(
-            identifier: identifier,
-            content: content,
-            trigger: trigger
-        )
-        
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("❌ Failed to schedule test notification: \(error.localizedDescription)")
-            } else {
-                print("✅ Test notification scheduled successfully with ID: \(identifier)")
-            }
-        }
-    }
     
     private func sendImmediateNotification() {
         let content = UNMutableNotificationContent()
@@ -1062,6 +1076,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         @unknown default: return "Unknown"
         }
     }
+    
     
     // MARK: - UNUserNotificationCenterDelegate
     

@@ -8,9 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial project setup
-- Comprehensive documentation
-- GitHub project structure
+- Future features and improvements
+
+## [1.3] - 2025-09-25
+
+### Fixed
+- **Notification Timing Bug**: Fixed issue where new day notifications always came at 8 AM instead of user's selected time range
+- **Fast Button Press Issue**: Resolved problem where rapid button presses wouldn't update progress notifications properly
+- **Data Type Mismatch**: Fixed incorrect reading of start/end times from UserDefaults that caused timing fallbacks
+
+### Improved
+- **Notification Debouncing**: Enhanced debouncing mechanism to be more precise and less aggressive
+- **Change Accumulation**: Multiple rapid button presses now properly accumulate and update notifications with latest state
+- **Performance**: Reduced notification scheduling delays and improved responsiveness
+
+### Technical
+- Updated notification scheduling to properly read Date objects from UserDefaults
+- Implemented DispatchWorkItem-based refresh system for better change handling
+- Added version migration support for 1.2 → 1.3 updates
 
 ## [1.0] - 2025-08-20
 

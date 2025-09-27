@@ -15,13 +15,12 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Sources
-    resources:
-      - path: Sources/Assets.xcassets
+      - path: Assets.xcassets
     settings:
       INFOPLIST_FILE: Sources/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.whio.waterreminder.app
       PRODUCT_NAME: WaterReminderApp
-      MARKETING_VERSION: "1.2"
+      MARKETING_VERSION: "1.3"
       CURRENT_PROJECT_VERSION: "3"
       CODE_SIGN_STYLE: Automatic
       CODE_SIGNING_ALLOWED: true
@@ -35,7 +34,7 @@ targets:
         CFBundleDisplayName: "Water Reminder"
         CFBundleName: "WaterReminderApp"
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "1.2"
+        CFBundleShortVersionString: "1.3"
         CFBundleVersion: "3"
         UILaunchStoryboardName: LaunchScreen
         UIApplicationSceneManifest:

@@ -38,7 +38,9 @@ struct SettingsView: View {
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
-                            Text("\(Int(waterReminderManager.waterIntakeGoal)) cups")
+                            Text(waterReminderManager.waterIntakeGoal == floor(waterReminderManager.waterIntakeGoal) ? 
+                                 "\(Int(waterReminderManager.waterIntakeGoal)) cups" : 
+                                 String(format: "%.1f cups", waterReminderManager.waterIntakeGoal))
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(.blue)
@@ -71,7 +73,9 @@ struct SettingsView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Spacer()
-                                Text("\(Int(waterReminderManager.waterIntakeGoal)) cups")
+                                Text(waterReminderManager.waterIntakeGoal == floor(waterReminderManager.waterIntakeGoal) ? 
+                                     "\(Int(waterReminderManager.waterIntakeGoal)) cups" : 
+                                     String(format: "%.1f cups", waterReminderManager.waterIntakeGoal))
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.blue)
@@ -259,35 +263,6 @@ struct SettingsView: View {
                     .foregroundColor(.red)
                 }
                 
-                #if DEBUG
-                Section("Testing") {
-                    // Test notification button
-                    Button(action: {
-                        print("🧪 Sending test notification...")
-                        waterReminderManager.scheduleTestNotification()
-                    }) {
-                        HStack {
-                            Image(systemName: "bell.badge")
-                                .foregroundColor(.blue)
-                            Text("Send Test Notification (5s)")
-                        }
-                    }
-                    
-                    // Force refresh notifications
-                    if waterReminderManager.isReminderEnabled {
-                        Button(action: {
-                            print("🔄 Force refreshing notifications...")
-                            waterReminderManager.forceRefreshNotifications()
-                        }) {
-                            HStack {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundColor(.orange)
-                                Text("Force Refresh Notifications")
-                            }
-                        }
-                    }
-                }
-                #endif
                 
                 Section("About") {
                     HStack {
@@ -295,7 +270,7 @@ struct SettingsView: View {
                             .foregroundColor(.blue)
                         Text("Version")
                         Spacer()
-                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3")
                             .foregroundColor(.secondary)
                     }
                     
