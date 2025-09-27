@@ -50,12 +50,15 @@ class SubscriptionManager: ObservableObject {
             // No trial started yet
             isTrialActive = false
             trialDaysRemaining = 0
+            print("🆓 No trial started yet")
             return
         }
         
         let trialDuration = TimeInterval(trialDurationDays * 24 * 60 * 60) // 7 days in seconds
         let timeElapsed = Date().timeIntervalSince(trialStart)
         let timeRemaining = trialDuration - timeElapsed
+        
+        print("🆓 Trial check - Start: \(trialStart), Elapsed: \(timeElapsed/86400) days, Remaining: \(timeRemaining/86400) days")
         
         if timeRemaining > 0 {
             isTrialActive = true
@@ -248,8 +251,9 @@ class SubscriptionManager: ObservableObject {
         // Set trial start date to 8 days ago
         let eightDaysAgo = Date().addingTimeInterval(-8 * 24 * 60 * 60)
         UserDefaults.standard.set(eightDaysAgo, forKey: trialStartKey)
+        print("🧪 DEBUG: Set trial start to 8 days ago: \(eightDaysAgo)")
         checkTrialStatus()
-        print("🧪 DEBUG: Simulated trial end")
+        print("🧪 DEBUG: After trial end simulation - isTrialActive: \(isTrialActive), trialDaysRemaining: \(trialDaysRemaining)")
     }
     
     func simulatePremiumActivation() {
