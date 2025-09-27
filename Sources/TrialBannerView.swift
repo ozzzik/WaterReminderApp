@@ -1,11 +1,11 @@
 import SwiftUI
 
 struct TrialBannerView: View {
-    @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var showingPaywall = false
     
     var body: some View {
-        if subscriptionManager.isTrialActive {
+        if subscriptionManager.isTrialActive && !subscriptionManager.isPremiumActive {
             VStack(spacing: 0) {
                 HStack {
                     Image(systemName: "clock.fill")
@@ -38,7 +38,6 @@ struct TrialBannerView: View {
             }
             .sheet(isPresented: $showingPaywall) {
                 PaywallView()
-                    .environmentObject(subscriptionManager)
             }
         }
     }

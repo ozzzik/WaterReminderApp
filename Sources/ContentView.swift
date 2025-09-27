@@ -98,6 +98,7 @@ struct ContentView: View {
                         
                         Toggle("", isOn: $waterReminderManager.isReminderEnabled)
                             .labelsHidden()
+                            .disabled(!subscriptionManager.isPremiumActive && !subscriptionManager.isTrialActive)
                     }
                     .padding()
                     .background(Color(.systemGray6))
@@ -105,11 +106,15 @@ struct ContentView: View {
                     
                     // Setup Recurring Reminders Button
                     Button(action: {
-                        print("🔄 Setting up recurring daily reminders...")
-                        waterReminderManager.scheduleReminders()
-                        // Update status after scheduling
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                            updateRecurringNotificationStatus()
+                        if subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive {
+                            print("🔄 Setting up recurring daily reminders...")
+                            waterReminderManager.scheduleReminders()
+                            // Update status after scheduling
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                updateRecurringNotificationStatus()
+                            }
+                        } else {
+                            showingPaywall = true
                         }
                     }) {
                         HStack {
@@ -123,6 +128,7 @@ struct ContentView: View {
                         .background(hasRecurringNotifications ? Color.green : Color.blue)
                         .cornerRadius(12)
                     }
+                    .disabled(!subscriptionManager.isPremiumActive && !subscriptionManager.isTrialActive && !hasRecurringNotifications)
                     
                     // Notification troubleshooting info
                     if !notificationManager.isAuthorized {
@@ -193,8 +199,15 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingSettings = true }) {
+                    Button(action: { 
+                        if subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive {
+                            showingSettings = true 
+                        } else {
+                            showingPaywall = true
+                        }
+                    }) {
                         Image(systemName: "gear")
+                            .foregroundColor((subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive) ? .blue : .gray)
                     }
                 }
             }
@@ -312,9 +325,17 @@ struct QuickAddButton: View {
     let subtitle: String
     @State private var showingPaywall = false
     
+    private var isBlocked: Bool {
+        // Block all buttons except 1 cup when not premium and not trial
+        return !subscriptionManager.isPremiumActive && !subscriptionManager.isTrialActive && amount != 1.0
+    }
+    
     var body: some View {
         Button(action: {
             if subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive {
+                waterReminderManager.recordWaterIntake(amount: amount)
+            } else if amount == 1.0 {
+                // Allow 1 cup even in paywall mode
                 waterReminderManager.recordWaterIntake(amount: amount)
             } else {
                 showingPaywall = true
@@ -323,24 +344,32 @@ struct QuickAddButton: View {
             VStack(spacing: 5) {
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(isBlocked ? .gray : .white)
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(isBlocked ? .gray.opacity(0.8) : .white.opacity(0.8))
             }
             .frame(width: 80, height: 60)
             .background(
                 LinearGradient(
-                    gradient: Gradient(colors: [.blue, .cyan]),
+                    gradient: Gradient(colors: isBlocked ? [.gray.opacity(0.3), .gray.opacity(0.2)] : [.blue, .cyan]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
             )
             .cornerRadius(12)
+            .overlay(
+                // Add lock icon for blocked buttons
+                isBlocked ? 
+                Image(systemName: "lock.fill")
+                    .foregroundColor(.gray)
+                    .font(.caption)
+                : nil
+            )
         }
+        .disabled(isBlocked)
         .sheet(isPresented: $showingPaywall) {
             PaywallView()
-                .environmentObject(subscriptionManager)
         }
     }
 }
