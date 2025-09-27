@@ -1,5 +1,5 @@
 {
-  "identifier" : "WaterReminderConfiguration",
+  "identifier" : "WaterReminderConfiguration_v2",
   "nonRenewingSubscriptions" : [
 
   ],
@@ -43,7 +43,7 @@
     "_applicationInternalID" : "com.whio.waterreminder.app",
     "_developerTeamID" : "YOUR_TEAM_ID",
     "_failTransactionsEnabled" : false,
-    "_lastSynchronizedDate" : 738892800.0,
+    "_lastSynchronizedDate" : 738892801.0,
     "_locale" : "en_US",
     "_storefront" : "USA",
     "_storeKitErrors" : [
