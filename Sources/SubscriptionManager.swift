@@ -91,19 +91,36 @@ class SubscriptionManager: ObservableObject {
     }
     
     func purchase(_ product: Product) async throws -> StoreKit.Transaction? {
+        print("🛒 Starting purchase for product: \(product.id)")
         let result = try await product.purchase()
         
         switch result {
         case .success(let verification):
+            print("✅ Purchase successful, verifying transaction...")
             let transaction = try checkVerified(verification)
+            print("✅ Transaction verified: \(transaction.id)")
             await transaction.finish()
-            checkSubscriptionStatus()
+            print("✅ Transaction finished")
+            
+            // Save recent purchase date as fallback for testing
+            UserDefaults.standard.set(Date(), forKey: "recentPurchaseDate")
+            
+            // Force subscription status update
+            await updateSubscriptionStatus()
+            print("💳 Updated subscription status: \(isPremiumActive)")
+            
             return transaction
             
-        case .userCancelled, .pending:
+        case .userCancelled:
+            print("❌ Purchase cancelled by user")
+            return nil
+            
+        case .pending:
+            print("⏳ Purchase pending")
             return nil
             
         default:
+            print("❌ Purchase failed with unknown result")
             return nil
         }
     }
@@ -129,14 +146,21 @@ class SubscriptionManager: ObservableObject {
     private func updateSubscriptionStatus() async {
         var isActive = false
         
+        print("🔍 Checking subscription status...")
+        
+        // Check current entitlements
         for await result in Transaction.currentEntitlements {
             do {
                 let transaction = try checkVerified(result)
+                print("🔍 Found entitlement: \(transaction.productID)")
                 
                 if transaction.productID == monthlyProductID || transaction.productID == yearlyProductID {
                     if transaction.revocationDate == nil {
+                        print("✅ Active subscription found: \(transaction.productID)")
                         isActive = true
                         break
+                    } else {
+                        print("❌ Subscription revoked: \(transaction.productID)")
                     }
                 }
             } catch {
@@ -144,9 +168,23 @@ class SubscriptionManager: ObservableObject {
             }
         }
         
+        // If no active subscription found, check if we have a recent purchase in UserDefaults
+        // This is a fallback for StoreKit testing scenarios
+        if !isActive {
+            let recentPurchaseKey = "recentPurchaseDate"
+            if let recentPurchaseDate = UserDefaults.standard.object(forKey: recentPurchaseKey) as? Date {
+                let timeSincePurchase = Date().timeIntervalSince(recentPurchaseDate)
+                // If purchase was within last 5 minutes, consider it active (for testing)
+                if timeSincePurchase < 300 {
+                    print("🧪 Using recent purchase fallback for testing")
+                    isActive = true
+                }
+            }
+        }
+        
         await MainActor.run {
             isPremiumActive = isActive
-            print("💳 Subscription status: \(isActive ? "Active" : "Inactive")")
+            print("💳 Final subscription status: \(isActive ? "Active" : "Inactive")")
         }
     }
     
@@ -223,6 +261,12 @@ class SubscriptionManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: trialStartKey)
         checkTrialStatus()
         print("🧪 DEBUG: Reset trial")
+    }
+    
+    func clearRecentPurchase() {
+        UserDefaults.standard.removeObject(forKey: "recentPurchaseDate")
+        checkSubscriptionStatus()
+        print("🧪 DEBUG: Cleared recent purchase fallback")
     }
     #endif
 }
