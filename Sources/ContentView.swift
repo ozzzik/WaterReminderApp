@@ -314,7 +314,7 @@ struct QuickAddButton: View {
     
     var body: some View {
         Button(action: {
-            if subscriptionManager.isSubscribed || subscriptionManager.isTrialActive {
+            if subscriptionManager.isPremiumActive || subscriptionManager.isTrialActive {
                 waterReminderManager.recordWaterIntake(amount: amount)
             } else {
                 showingPaywall = true

@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var ratingManager: RatingManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
+    @State private var showingPaywall = false
     
     @State private var selectedIntervalIndex = 0
     @State private var customIntervalMinutes = 60
@@ -265,7 +266,7 @@ struct SettingsView: View {
                 }
                 
                 Section("Subscription") {
-                    if subscriptionManager.isSubscribed {
+                    if subscriptionManager.isPremiumActive {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundColor(.green)
@@ -293,12 +294,44 @@ struct SettingsView: View {
                             Text("Upgrade to Premium")
                             Spacer()
                             Button("Subscribe") {
-                                // This would open the paywall
+                                showingPaywall = true
                             }
                             .foregroundColor(.blue)
                         }
                     }
                 }
+                
+                #if DEBUG
+                Section("Debug Controls") {
+                    HStack {
+                        Button("End Trial Now") {
+                            subscriptionManager.simulateTrialEnd()
+                        }
+                        .foregroundColor(.red)
+                        
+                        Spacer()
+                        
+                        Button("Activate Premium") {
+                            subscriptionManager.simulatePremiumActivation()
+                        }
+                        .foregroundColor(.green)
+                    }
+                    
+                    HStack {
+                        Button("Reset Trial") {
+                            subscriptionManager.resetTrial()
+                        }
+                        .foregroundColor(.orange)
+                        
+                        Spacer()
+                        
+                        Button("Deactivate Premium") {
+                            subscriptionManager.simulatePremiumDeactivation()
+                        }
+                        .foregroundColor(.blue)
+                    }
+                }
+                #endif
                 
                 Section("About") {
                     HStack {
@@ -326,6 +359,10 @@ struct SettingsView: View {
                         dismiss()
                     }
                 }
+            }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
+                    .environmentObject(subscriptionManager)
             }
         }
         .onAppear {

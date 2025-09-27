@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TrialBannerView: View {
     @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @State private var showingPaywall = false
     
     var body: some View {
         if subscriptionManager.isTrialActive {
@@ -18,7 +19,7 @@ struct TrialBannerView: View {
                     Spacer()
                     
                     Button("Upgrade") {
-                        // This will be handled by the parent view
+                        showingPaywall = true
                     }
                     .font(.caption)
                     .fontWeight(.semibold)
@@ -34,6 +35,10 @@ struct TrialBannerView: View {
             }
             .onAppear {
                 subscriptionManager.checkTrialStatus()
+            }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
+                    .environmentObject(subscriptionManager)
             }
         }
     }

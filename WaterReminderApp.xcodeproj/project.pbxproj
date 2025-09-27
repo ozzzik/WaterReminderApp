@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -29,6 +29,7 @@
 		16AC04C4E5B2B7E34579E968 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		1914667C4D41E9A1716B6F11 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		27A9C937905F478F2AF73A53 /* WaterReminderManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterReminderManager.swift; sourceTree = "<group>"; };
+		A1D892692E8859BB00F0A36E /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
 		A68A785E03CAFCE30C8FD33C /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		C3F31DF40BACE1EFADF49763 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C909EF4E018FE5A5F70FBE58 /* RatingRequestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingRequestView.swift; sourceTree = "<group>"; };
@@ -80,6 +81,7 @@
 		F3E14520DC1F942F76254F3B = {
 			isa = PBXGroup;
 			children = (
+				A1D892692E8859BB00F0A36E /* Configuration.storekit */,
 				D28A2738218462EBB7D1D36F /* Assets.xcassets */,
 				32858681967BCEFCE8C1EEF4 /* Sources */,
 				BBF3732D7E9A78608C8A3E45 /* Products */,
@@ -131,7 +133,6 @@
 			);
 			mainGroup = F3E14520DC1F942F76254F3B;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -182,8 +183,8 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-                DEVELOPMENT_TEAM = X3BKBK8VYL;
 				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X3BKBK8VYL;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -263,8 +264,8 @@
 				CODE_SIGNING_ALLOWED = YES;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-                DEVELOPMENT_TEAM = X3BKBK8VYL;
 				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = X3BKBK8VYL;
 				GENERATE_ASSET_SYMBOLS = YES;
 				INFOPLIST_FILE = Sources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
