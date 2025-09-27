@@ -2,7 +2,7 @@ import SwiftUI
 import StoreKit
 
 struct SubscriptionView: View {
-    @ObservedObject private var subscriptionManager = SubscriptionManager.shared
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @Environment(\.dismiss) private var dismiss
     
     @State private var selectedProduct: Product?
@@ -151,7 +151,14 @@ struct SubscriptionView: View {
                     if transaction != nil {
                         purchaseMessage = "Subscription activated successfully!"
                         showingPurchaseAlert = true
-                        dismiss()
+                        
+                        // Wait a moment for subscription status to update, then dismiss
+                        Task {
+                            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                            await MainActor.run {
+                                dismiss()
+                            }
+                        }
                     } else {
                         purchaseMessage = "Purchase was cancelled."
                         showingPurchaseAlert = true

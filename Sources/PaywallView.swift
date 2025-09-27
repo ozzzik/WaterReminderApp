@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct PaywallView: View {
-    @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @Environment(\.dismiss) private var dismiss
     @State private var showingSubscription = false
     
     var body: some View {
@@ -104,6 +105,11 @@ struct PaywallView: View {
         }
         .sheet(isPresented: $showingSubscription) {
             SubscriptionView()
+        }
+        .onChange(of: subscriptionManager.isPremiumActive) { isActive in
+            if isActive {
+                dismiss()
+            }
         }
     }
 }
