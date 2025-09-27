@@ -331,10 +331,17 @@ struct SettingsView: View {
                         .foregroundColor(.blue)
                     }
                     
-                    Button("Clear Purchase Cache") {
-                        subscriptionManager.clearRecentPurchase()
-                    }
-                    .foregroundColor(.purple)
+                        Button("Clear Purchase Cache") {
+                            subscriptionManager.clearRecentPurchase()
+                        }
+                        .foregroundColor(.purple)
+                        
+                        Spacer()
+                        
+                        Button("Force Status Check") {
+                            subscriptionManager.forceSubscriptionCheck()
+                        }
+                        .foregroundColor(.cyan)
                 }
                 #endif
                 

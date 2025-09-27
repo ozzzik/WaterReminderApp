@@ -109,6 +109,11 @@ class SubscriptionManager: ObservableObject {
             await updateSubscriptionStatus()
             print("💳 Updated subscription status: \(isPremiumActive)")
             
+            // Double-check after a small delay
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            await updateSubscriptionStatus()
+            print("💳 Final subscription status after delay: \(isPremiumActive)")
+            
             return transaction
             
         case .userCancelled:
@@ -267,6 +272,13 @@ class SubscriptionManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "recentPurchaseDate")
         checkSubscriptionStatus()
         print("🧪 DEBUG: Cleared recent purchase fallback")
+    }
+    
+    func forceSubscriptionCheck() {
+        Task {
+            await updateSubscriptionStatus()
+            print("🧪 DEBUG: Forced subscription status check - Result: \(isPremiumActive)")
+        }
     }
     #endif
 }
