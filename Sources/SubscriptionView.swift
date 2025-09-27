@@ -160,7 +160,9 @@ struct SubscriptionView: View {
             } catch {
                 await MainActor.run {
                     subscriptionManager.isLoading = false
-                    purchaseMessage = "Purchase failed: \(error.localizedDescription)"
+                    let errorMessage = error.localizedDescription
+                    print("❌ Purchase error: \(errorMessage)")
+                    purchaseMessage = "Purchase failed: \(errorMessage)"
                     showingPurchaseAlert = true
                 }
             }

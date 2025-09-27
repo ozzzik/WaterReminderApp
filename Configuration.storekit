@@ -15,8 +15,10 @@
           "locale" : "en_US"
         }
       ],
+      "period" : "P1M",
       "productID" : "com.whio.waterreminder.monthly",
       "referenceName" : "Premium Monthly",
+      "subscriptionGroupIdentifier" : "21482456",
       "type" : "RecurringSubscription"
     },
     {
@@ -30,8 +32,10 @@
           "locale" : "en_US"
         }
       ],
+      "period" : "P1Y",
       "productID" : "com.whio.waterreminder.yearly",
       "referenceName" : "Premium Yearly",
+      "subscriptionGroupIdentifier" : "21482456",
       "type" : "RecurringSubscription"
     }
   ],
