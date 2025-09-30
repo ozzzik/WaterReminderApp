@@ -22,6 +22,7 @@ class SubscriptionManager: ObservableObject {
     @Published var products: [Product] = []
     
     private var updateListenerTask: Task<Void, Error>? = nil
+    private var trialTimer: Timer?
     
     private init() {
         // Start listening for transaction updates
@@ -30,10 +31,14 @@ class SubscriptionManager: ObservableObject {
         // Initialize subscription status
         checkSubscriptionStatus()
         checkTrialStatus()
+        
+        // Start trial countdown timer
+        startTrialTimer()
     }
     
     deinit {
         updateListenerTask?.cancel()
+        trialTimer?.invalidate()
     }
     
     // MARK: - Trial Management
@@ -68,6 +73,15 @@ class SubscriptionManager: ObservableObject {
             isTrialActive = false
             trialDaysRemaining = 0
             print("🆓 Trial expired")
+        }
+    }
+    
+    private func startTrialTimer() {
+        // Update trial status every minute
+        trialTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkTrialStatus()
+            }
         }
     }
     
