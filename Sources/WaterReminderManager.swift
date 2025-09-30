@@ -641,6 +641,10 @@ class WaterReminderManager: ObservableObject {
         print("🧪 DEBUG: Testing goal achievement...")
         print("🧪 Current intake: \(currentWaterIntake), Goal: \(waterIntakeGoal)")
         
+        // Clear the daily spam prevention first
+        UserDefaults.standard.removeObject(forKey: "lastGoalNotificationDate")
+        print("🧪 Cleared daily spam prevention")
+        
         // Set current intake to just below goal
         let previousIntake = currentWaterIntake
         currentWaterIntake = waterIntakeGoal - 0.5
