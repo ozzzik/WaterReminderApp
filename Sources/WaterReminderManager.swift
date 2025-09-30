@@ -634,4 +634,21 @@ class WaterReminderManager: ObservableObject {
         dailyResetTimer?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
+    
+    // MARK: - Debug Methods (only available in DEBUG builds)
+    #if DEBUG
+    func testGoalAchievement() {
+        print("🧪 DEBUG: Testing goal achievement...")
+        print("🧪 Current intake: \(currentWaterIntake), Goal: \(waterIntakeGoal)")
+        
+        // Set current intake to just below goal
+        let previousIntake = currentWaterIntake
+        currentWaterIntake = waterIntakeGoal - 0.5
+        print("🧪 Set intake to \(currentWaterIntake) (just below goal)")
+        
+        // Now add 0.5 cups to trigger goal achievement
+        recordWaterIntake(amount: 0.5)
+        print("🧪 Added 0.5 cups, new intake: \(currentWaterIntake)")
+    }
+    #endif
 } 

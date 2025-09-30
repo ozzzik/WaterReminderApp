@@ -331,6 +331,7 @@ struct SettingsView: View {
                         .foregroundColor(.blue)
                     }
                     
+                    HStack {
                         Button("Clear Purchase Cache") {
                             subscriptionManager.clearRecentPurchase()
                         }
@@ -342,6 +343,21 @@ struct SettingsView: View {
                             subscriptionManager.forceSubscriptionCheck()
                         }
                         .foregroundColor(.cyan)
+                    }
+                    
+                    HStack {
+                        Button("Test Goal Achievement") {
+                            waterReminderManager.testGoalAchievement()
+                        }
+                        .foregroundColor(.yellow)
+                        
+                        Spacer()
+                        
+                        Button("Reset Congrats") {
+                            UserDefaults.standard.removeObject(forKey: "lastGoalNotificationDate")
+                        }
+                        .foregroundColor(.pink)
+                    }
                 }
                 #endif
                 
