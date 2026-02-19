@@ -10,7 +10,16 @@ class WaterReminderManager: ObservableObject {
     @Published var endTime = Calendar.current.date(from: DateComponents(hour: 20, minute: 0)) ?? Date()
     @Published var waterIntakeGoal: Double = 8.0 // cups per day
     @Published var currentWaterIntake: Double = 0.0
+    
+    // Reference to subscription manager to check premium status
+    weak var subscriptionManager: SubscriptionManager?
     @Published var lastDrinkTime: Date?
+    
+    // Computed property to check if reminders are actually active (considering premium status)
+    @MainActor
+    var areRemindersActuallyActive: Bool {
+        return isReminderEnabled && (subscriptionManager?.isPremiumActive ?? false)
+    }
     
     private let notificationManager = NotificationManager()
     private var cancellables = Set<AnyCancellable>()
@@ -61,10 +70,12 @@ class WaterReminderManager: ObservableObject {
             .sink { [weak self] enabled in
                 print("🔔 isReminderEnabled changed to: \(enabled), isLoadingSettings: \(self?.isLoadingSettings ?? false), isInitialized: \(self?.isInitialized ?? false)")
                 
-                if enabled {
-                    self?.scheduleReminders()
-                } else {
-                    self?.cancelReminders()
+                Task { @MainActor in
+                    if enabled {
+                        self?.scheduleReminders()
+                    } else {
+                        self?.cancelReminders()
+                    }
                 }
                 
                 // Disabled automatic saves to prevent startup interference
@@ -75,7 +86,7 @@ class WaterReminderManager: ObservableObject {
         $reminderInterval
             .sink { [weak self] newInterval in
                 // Use a small delay to ensure the property is fully updated
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     if self?.isReminderEnabled == true {
                         self?.scheduleReminders()
                     }
@@ -87,33 +98,46 @@ class WaterReminderManager: ObservableObject {
         
         $startTime
             .sink { [weak self] _ in
-                if self?.isReminderEnabled == true {
-                    self?.scheduleReminders()
+                Task { @MainActor in
+                    if self?.isReminderEnabled == true {
+                        self?.scheduleReminders()
+                    }
+                    // Disabled automatic saves to prevent startup interference
+                    print("⏭️ Auto-save disabled")
                 }
-                // Disabled automatic saves to prevent startup interference
-                print("⏭️ Auto-save disabled")
             }
             .store(in: &cancellables)
         
         $endTime
             .sink { [weak self] _ in
-                if self?.isReminderEnabled == true {
-                    self?.scheduleReminders()
+                Task { @MainActor in
+                    if self?.isReminderEnabled == true {
+                        self?.scheduleReminders()
+                    }
+                    // Disabled automatic saves to prevent startup interference
+                    print("⏭️ Auto-save disabled")
                 }
-                // Disabled automatic saves to prevent startup interference
-                print("⏭️ Auto-save disabled")
             }
             .store(in: &cancellables)
         
         $waterIntakeGoal
-            .sink { [weak self] _ in
+            .sink { _ in
                 // Disabled automatic saves to prevent startup interference
                 print("⏭️ Auto-save disabled")
             }
             .store(in: &cancellables)
     }
     
+    @MainActor
     func scheduleReminders() {
+        // Only schedule reminders if premium is active
+        guard subscriptionManager?.isPremiumActive == true else {
+            print("🚫 Cannot schedule reminders - premium not active")
+            // Cancel any existing notifications if premium is not active
+            cancelReminders()
+            return
+        }
+        
         // Use the new notification system that schedules today and tomorrow
         // The debouncing is now handled inside NotificationManager
         notificationManager.scheduleNotificationsForTodayAndTomorrow()
@@ -220,7 +244,9 @@ class WaterReminderManager: ObservableObject {
             
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self = self, self.isReminderEnabled else { return }
-                self.scheduleReminders()
+                Task { @MainActor in
+                    self.scheduleReminders()
+                }
             }
             
             refreshWorkItem = workItem
@@ -273,14 +299,13 @@ class WaterReminderManager: ObservableObject {
         
         let calendar = Calendar.current
         let isNewDay = !calendar.isDate(lastDrink, inSameDayAs: Date())
-        let currentDate = Date()
         
         print("🔍 Reset check - Current intake: \(currentIntake), Last drink: \(lastDrink), Is new day: \(isNewDay)")
         
         return isNewDay
     }
     
-    private func loadSettings() {
+    func loadSettings() {
         // Loading settings from UserDefaults
         isLoadingSettings = true
         
@@ -365,19 +390,23 @@ class WaterReminderManager: ObservableObject {
     }
     
     // MARK: - Public methods for better notification management
+    @MainActor
     func forceRefreshNotifications() {
         print("🔄 FORCE REFRESHING NOTIFICATIONS...")
         
-        if isReminderEnabled {
+        if areRemindersActuallyActive {
             // Cancel all existing notifications first
             notificationManager.cancelAllNotifications()
             
             // Wait a moment, then reschedule
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.scheduleReminders()
+                Task { @MainActor in
+                    self.scheduleReminders()
+                }
             }
         } else {
-            // Just cancel all notifications
+            // Just cancel all notifications if not premium or reminders disabled
+            print("🚫 Canceling all notifications - reminders not active or premium not active")
             notificationManager.cancelAllNotifications()
         }
     }
@@ -385,6 +414,22 @@ class WaterReminderManager: ObservableObject {
     func checkNotificationStatus(completion: @escaping (Bool) -> Void) {
         notificationManager.hasRecurringNotificationsAsync { hasRecurring in
             completion(hasRecurring)
+        }
+    }
+    
+    // Method to handle subscription status changes
+    @MainActor
+    func handleSubscriptionStatusChange() {
+        print("🔄 Subscription status changed - refreshing notification status")
+        
+        if areRemindersActuallyActive {
+            print("✅ Premium active and reminders enabled - scheduling notifications")
+            Task { @MainActor in
+                scheduleReminders()
+            }
+        } else {
+            print("🚫 Premium not active or reminders disabled - canceling notifications")
+            cancelReminders()
         }
     }
     
@@ -504,7 +549,7 @@ class WaterReminderManager: ObservableObject {
     // MARK: - Version Migration
     private func handleVersionMigration() {
         let defaults = UserDefaults.standard
-        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3"
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.4"
         let lastVersion = defaults.string(forKey: "lastAppVersion")
         
         // First launch or version change
@@ -577,7 +622,9 @@ class WaterReminderManager: ObservableObject {
             // Force refresh notifications with new settings after migration
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 if self.isReminderEnabled {
-                    self.scheduleReminders()
+                    Task { @MainActor in
+                        self.scheduleReminders()
+                    }
                 }
             }
         }
@@ -590,13 +637,25 @@ class WaterReminderManager: ObservableObject {
             print("✅ 1.3 migration completed - notification timing and fast-press fixes applied")
         }
         
+        if oldVersion.hasPrefix("1.3") && newVersion.hasPrefix("1.4") {
+            print("🔄 Running 1.3 → 1.4 migration")
+            // Version 1.4 includes subscription system improvements and trial fixes
+            // No specific migration needed as the fixes are backward compatible
+            print("✅ 1.4 migration completed - subscription system and trial fixes applied")
+        }
+        
         defaults.synchronize()
     }
     
     private func clearAppBadge() {
         DispatchQueue.main.async {
-            UIApplication.shared.applicationIconBadgeNumber = 0
-            print("🔴 App badge cleared")
+            UNUserNotificationCenter.current().setBadgeCount(0) { error in
+                if let error = error {
+                    print("❌ Failed to clear app badge: \(error)")
+                } else {
+                    print("🔴 App badge cleared")
+                }
+            }
         }
     }
     
@@ -646,7 +705,6 @@ class WaterReminderManager: ObservableObject {
         print("🧪 Cleared daily spam prevention")
         
         // Set current intake to just below goal
-        let previousIntake = currentWaterIntake
         currentWaterIntake = waterIntakeGoal - 0.5
         print("🧪 Set intake to \(currentWaterIntake) (just below goal)")
         

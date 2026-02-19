@@ -20,7 +20,7 @@ targets:
       INFOPLIST_FILE: Sources/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.whio.waterreminder.app
       PRODUCT_NAME: WaterReminderApp
-      MARKETING_VERSION: "1.3"
+      MARKETING_VERSION: "1.4"
       CURRENT_PROJECT_VERSION: "3"
       CODE_SIGN_STYLE: Automatic
       CODE_SIGNING_ALLOWED: true
@@ -34,7 +34,7 @@ targets:
         CFBundleDisplayName: "Water Reminder"
         CFBundleName: "WaterReminderApp"
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "1.3"
+        CFBundleShortVersionString: "1.4"
         CFBundleVersion: "3"
         UILaunchStoryboardName: LaunchScreen
         UIApplicationSceneManifest:

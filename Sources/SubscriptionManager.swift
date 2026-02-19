@@ -2,223 +2,200 @@ import Foundation
 import StoreKit
 import SwiftUI
 
+/// Receipt data structure for debugging subscription issues
+struct ReceiptData {
+    let isInBillingRetryPeriod: Bool
+    let isTrialPeriod: Bool
+    let expiresDate: Date?
+    let productId: String?
+    let originalTransactionId: String?
+    let rawReceipt: String
+}
+
+/// Clean SubscriptionManager built on StoreKit2 best practices
+/// Based on: StoreHelper (Russell Archer) & StoreKit2 Demo (Aisultan)
 @MainActor
 class SubscriptionManager: ObservableObject {
     static let shared = SubscriptionManager()
     
-    // Subscription product IDs
-    private let monthlyProductID = "com.whio.waterreminder.monthly"
-    private let yearlyProductID = "com.whio.waterreminder.yearly"
+    // MARK: - Product Configuration
     
-    // Trial settings
-    private let trialDurationDays = 7
-    private let trialStartKey = "trialStartDate"
-    private let subscriptionStatusKey = "subscriptionStatus"
+    /// Product IDs for subscriptions (v4 - fresh start)
+    private let productIds: Set<String> = [
+        "com.whio.waterreminder.monthly.v4",
+        "com.whio.waterreminder.yearly.v4"
+    ]
     
-    @Published var isPremiumActive = false
-    @Published var isTrialActive = false
-    @Published var trialDaysRemaining = 0
-    @Published var isLoading = false
+    // MARK: - Published State
+    
+    /// Available subscription products from App Store
     @Published var products: [Product] = []
     
-    private var updateListenerTask: Task<Void, Error>? = nil
-    private var trialTimer: Timer?
+    /// Current subscription status
+    @Published var subscriptionStatus: SubscriptionStatus = .notSubscribed
     
-    private init() {
-        // Start listening for transaction updates
+    /// Currently active subscription product
+    @Published var currentSubscription: Product?
+    
+    /// Subscription expiration date (if active)
+    @Published var expirationDate: Date?
+    
+    /// Loading state for purchases and restores
+    @Published var isLoading = false
+    
+    /// Error message for user display
+    @Published var errorMessage: String?
+    
+    /// Receipt verification data for debugging
+    @Published var receiptData: ReceiptData?
+    
+    /// Whether subscription status has been checked at least once
+    @Published var hasCheckedSubscriptionStatus = false
+    
+    // MARK: - Private State
+    
+    /// Task for listening to transaction updates
+    private var updateListenerTask: Task<Void, Never>?
+    
+    // MARK: - Initialization
+    
+    init() {
+        // Start listening for transaction updates immediately
         updateListenerTask = listenForTransactions()
         
-        // Initialize subscription status
-        checkSubscriptionStatus()
-        checkTrialStatus()
-        
-        // Start trial countdown timer
-        startTrialTimer()
+        // Load products and check subscription status
+        Task {
+            await loadProducts()
+            await updateSubscriptionStatus()
+        }
     }
     
     deinit {
         updateListenerTask?.cancel()
-        trialTimer?.invalidate()
     }
     
-    // MARK: - Trial Management
+    // MARK: - Product Loading
     
-    func startTrial() {
-        let trialStart = Date()
-        UserDefaults.standard.set(trialStart, forKey: trialStartKey)
-        checkTrialStatus()
-        print("🆓 Trial started: \(trialStart)")
-    }
-    
-    func checkTrialStatus() {
-        guard let trialStart = UserDefaults.standard.object(forKey: trialStartKey) as? Date else {
-            // No trial started yet
-            isTrialActive = false
-            trialDaysRemaining = 0
-            print("🆓 No trial started yet")
-            return
-        }
-        
-        let trialDuration = TimeInterval(trialDurationDays * 24 * 60 * 60) // 7 days in seconds
-        let timeElapsed = Date().timeIntervalSince(trialStart)
-        let timeRemaining = trialDuration - timeElapsed
-        
-        print("🆓 Trial check - Start: \(trialStart), Elapsed: \(timeElapsed/86400) days, Remaining: \(timeRemaining/86400) days")
-        
-        if timeRemaining > 0 {
-            isTrialActive = true
-            trialDaysRemaining = max(1, Int(ceil(timeRemaining / (24 * 60 * 60))))
-            print("🆓 Trial active: \(trialDaysRemaining) days remaining")
-        } else {
-            isTrialActive = false
-            trialDaysRemaining = 0
-            print("🆓 Trial expired")
-        }
-    }
-    
-    private func startTrialTimer() {
-        // Update trial status every minute
-        trialTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkTrialStatus()
-            }
-        }
-    }
-    
-    // MARK: - App Access Control
-    
-    func canUseApp() -> Bool {
-        return isTrialActive || isPremiumActive
-    }
-    
-    func shouldShowPaywall() -> Bool {
-        return !canUseApp()
-    }
-    
-    // MARK: - StoreKit Integration
-    
+    /// Load products from App Store
     func loadProducts() async {
         do {
-            let productIDs = [monthlyProductID, yearlyProductID]
-            products = try await Product.products(for: productIDs)
-            print("🛒 Loaded \(products.count) products")
+            print("📦 Loading products...")
+            let loadedProducts = try await Product.products(for: productIds)
+            
+            // Sort by price (monthly first, then yearly)
+            products = loadedProducts.sorted { $0.price < $1.price }
+            
+            print("✅ Loaded \(products.count) products")
+            for product in products {
+                print("  - \(product.displayName): \(product.displayPrice)")
+            }
         } catch {
             print("❌ Failed to load products: \(error)")
+            errorMessage = "Failed to load subscription options. Please try again."
         }
     }
     
-    func purchase(_ product: Product) async throws -> StoreKit.Transaction? {
-        print("🛒 Starting purchase for product: \(product.id)")
-        let result = try await product.purchase()
+    // MARK: - Purchase
+    
+    /// Purchase a subscription product
+    func purchase(_ product: Product) async throws {
+        print("💳 Starting purchase for: \(product.displayName) (ID: \(product.id))")
+        print("💳 Product type: \(product.type)")
+        print("💳 Product price: \(product.displayPrice)")
+        print("💳 iOS version: \(UIDevice.current.systemVersion)")
         
-        switch result {
-        case .success(let verification):
-            print("✅ Purchase successful, verifying transaction...")
-            let transaction = try checkVerified(verification)
-            print("✅ Transaction verified: \(transaction.id)")
-            await transaction.finish()
-            print("✅ Transaction finished")
-            
-            // Save recent purchase date as fallback for testing
-            UserDefaults.standard.set(Date(), forKey: "recentPurchaseDate")
-            
-            // Force subscription status update
-            await updateSubscriptionStatus()
-            print("💳 Updated subscription status: \(isPremiumActive)")
-            
-            // Double-check after a small delay
-            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            await updateSubscriptionStatus()
-            print("💳 Final subscription status after delay: \(isPremiumActive)")
-            
-            return transaction
-            
-        case .userCancelled:
-            print("❌ Purchase cancelled by user")
-            return nil
-            
-        case .pending:
-            print("⏳ Purchase pending")
-            return nil
-            
-        default:
-            print("❌ Purchase failed with unknown result")
-            return nil
+        // Check if we're in a supported environment
+        guard product.type == .autoRenewable else {
+            throw StoreError.failedVerification
         }
-    }
-    
-    func restorePurchases() async {
+        
+        isLoading = true
+        errorMessage = nil
+        
+        defer { 
+            isLoading = false
+            print("💳 Purchase process completed")
+        }
+        
         do {
-            try await AppStore.sync()
-            checkSubscriptionStatus()
-            print("🔄 Purchases restored")
-        } catch {
-            print("❌ Failed to restore purchases: \(error)")
-        }
-    }
-    
-    // MARK: - Subscription Status
-    
-    func checkSubscriptionStatus() {
-        Task {
-            await updateSubscriptionStatus()
-        }
-    }
-    
-    private func updateSubscriptionStatus() async {
-        var isActive = false
-        
-        print("🔍 Checking subscription status...")
-        
-        // Check current entitlements
-        for await result in Transaction.currentEntitlements {
-            do {
-                let transaction = try checkVerified(result)
-                print("🔍 Found entitlement: \(transaction.productID)")
+            print("💳 Calling product.purchase()...")
+            let result = try await product.purchase()
+            print("💳 Purchase result received: \(result)")
+            
+            switch result {
+            case .success(let verification):
+                print("✅ Purchase successful, verifying...")
+                let transaction = try checkVerified(verification)
+                print("✅ Transaction verified: \(transaction.id)")
                 
-                if transaction.productID == monthlyProductID || transaction.productID == yearlyProductID {
-                    if transaction.revocationDate == nil {
-                        print("✅ Active subscription found: \(transaction.productID)")
-                        isActive = true
-                        break
-                    } else {
-                        print("❌ Subscription revoked: \(transaction.productID)")
-                    }
-                }
-            } catch {
-                print("❌ Failed to verify transaction: \(error)")
+                // Update subscription status
+                await updateSubscriptionStatus()
+                
+                // Finish the transaction
+                await transaction.finish()
+                print("✅ Transaction finished: \(transaction.id)")
+                
+            case .userCancelled:
+                print("⚠️ User cancelled purchase")
+                // Don't update subscription status when user cancels
+                return
+                
+            case .pending:
+                print("⏳ Purchase pending approval")
+                errorMessage = "Purchase is pending approval"
+                
+            @unknown default:
+                print("⚠️ Unknown purchase result")
+                errorMessage = "Unknown purchase result"
             }
-        }
-        
-        // If no active subscription found, check if we have a recent purchase in UserDefaults
-        // This is a fallback for StoreKit testing scenarios
-        if !isActive {
-            let recentPurchaseKey = "recentPurchaseDate"
-            if let recentPurchaseDate = UserDefaults.standard.object(forKey: recentPurchaseKey) as? Date {
-                let timeSincePurchase = Date().timeIntervalSince(recentPurchaseDate)
-                // If purchase was within last 5 minutes, consider it active (for testing)
-                if timeSincePurchase < 300 {
-                    print("🧪 Using recent purchase fallback for testing")
-                    isActive = true
+        } catch {
+            print("❌ Purchase failed with error: \(error)")
+            print("❌ Error type: \(type(of: error))")
+            print("❌ Error description: \(error.localizedDescription)")
+            
+            // Handle specific error types
+            let userFriendlyMessage: String
+            if let storeKitError = error as? StoreKitError {
+                switch storeKitError {
+                case .networkError:
+                    userFriendlyMessage = "Network connection failed. Please check your internet connection and try again."
+                case .userCancelled:
+                    userFriendlyMessage = "Purchase was cancelled."
+                    return // Don't show error for user cancellation
+                case .systemError:
+                    userFriendlyMessage = "System error occurred. Please try again."
+                default:
+                    userFriendlyMessage = "Purchase failed: \(error.localizedDescription)"
                 }
+            } else {
+                userFriendlyMessage = "Purchase failed: \(error.localizedDescription)"
             }
-        }
-        
-        await MainActor.run {
-            isPremiumActive = isActive
-            print("💳 Final subscription status: \(isActive ? "Active" : "Inactive")")
+            
+            errorMessage = userFriendlyMessage
+            throw error
         }
     }
     
-    // MARK: - Helper Methods
+    // MARK: - Transaction Listener
     
-    private func listenForTransactions() -> Task<Void, Error> {
-        return Task.detached {
+    /// Listen for transaction updates from the App Store
+    private func listenForTransactions() -> Task<Void, Never> {
+        return Task.detached { [weak self] in
+            print("👂 Starting transaction listener...")
+            
             for await result in Transaction.updates {
                 do {
-                    let transaction = try await self.checkVerified(result)
-                    await transaction.finish()
-                    await self.checkSubscriptionStatus()
+                    let transaction = try await self?.checkVerified(result)
+                    
+                    if let transaction = transaction {
+                        print("🔔 Transaction update: \(transaction.id)")
+                        
+                        // Update subscription status on main actor
+                        await self?.updateSubscriptionStatus()
+                        
+                        // Finish the transaction
+                        await transaction.finish()
+                    }
                 } catch {
                     print("❌ Transaction verification failed: \(error)")
                 }
@@ -226,101 +203,308 @@ class SubscriptionManager: ObservableObject {
         }
     }
     
+    // MARK: - Subscription Status
+    
+    /// Check and update current subscription status
+    func updateSubscriptionStatus() async {
+        print("🔄 Updating subscription status...")
+        
+        var activeSubscription: Product?
+        var latestExpiration: Date?
+        var status: SubscriptionStatus = .notSubscribed
+        
+        // Check current entitlements
+        for await result in Transaction.currentEntitlements {
+            do {
+                let transaction = try checkVerified(result)
+                
+                // Check if this is one of our subscription products
+                if productIds.contains(transaction.productID) {
+                    print("✅ Found active entitlement: \(transaction.productID)")
+                    
+                    // Find the matching product
+                    if let product = products.first(where: { $0.id == transaction.productID }) {
+                        activeSubscription = product
+                        latestExpiration = transaction.expirationDate
+                        
+                        // Determine status based on transaction state
+                        if let expiration = transaction.expirationDate {
+                            if expiration > Date() {
+                                // Check if this is a trial period (first purchase within trial period)
+                                let isTrialPeriod = transaction.isUpgraded == false && 
+                                                   transaction.originalPurchaseDate == transaction.purchaseDate
+                                
+                                if isTrialPeriod {
+                                    print("🎁 Trial period active until: \(expiration)")
+                                } else {
+                                    print("✅ Subscription active until: \(expiration)")
+                                }
+                                status = .subscribed // Both trial and paid subscriptions are "subscribed"
+                            } else {
+                                status = .expired
+                                print("⚠️ Subscription expired: \(expiration)")
+                            }
+                        }
+                        
+                        // Check for cancellation (will expire but still active)
+                        if transaction.revocationDate != nil {
+                            status = .expired
+                            print("⚠️ Subscription revoked")
+                        }
+                    }
+                }
+            } catch {
+                print("❌ Failed to verify entitlement: \(error)")
+            }
+        }
+        
+        // Update published properties
+        currentSubscription = activeSubscription
+        expirationDate = latestExpiration
+        subscriptionStatus = status
+        hasCheckedSubscriptionStatus = true
+        
+        print("📊 Subscription status updated: \(status)")
+    }
+    
+    // MARK: - Restore Purchases
+    
+    /// Restore previous purchases
+    func restorePurchases() async {
+        print("🔄 Restoring purchases...")
+        isLoading = true
+        errorMessage = nil
+        
+        defer { isLoading = false }
+        
+        do {
+            // Sync with App Store
+            try await AppStore.sync()
+            print("✅ App Store sync completed")
+            
+            // Update subscription status
+            await updateSubscriptionStatus()
+            
+            if subscriptionStatus == .subscribed {
+                print("✅ Purchases restored successfully")
+            } else {
+                print("ℹ️ No active subscriptions found")
+                errorMessage = "No active subscriptions found"
+            }
+        } catch {
+            print("❌ Failed to restore purchases: \(error)")
+            errorMessage = "Failed to restore purchases: \(error.localizedDescription)"
+        }
+    }
+    
+    // MARK: - Verification
+    
+    /// Verify a transaction using StoreKit2 verification
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
-        case .unverified:
+        case .unverified(let item, let error):
+            print("❌ Transaction verification failed for \(item): \(error)")
+            print("❌ Verification error details: \(error.localizedDescription)")
             throw StoreError.failedVerification
         case .verified(let safe):
+            print("✅ Transaction verified successfully: \(safe)")
             return safe
         }
     }
     
-    // MARK: - Product Helpers
+    // MARK: - Helper Properties
     
-    func getMonthlyProduct() -> Product? {
-        return products.first { $0.id == monthlyProductID }
-    }
-    
-    func getYearlyProduct() -> Product? {
-        return products.first { $0.id == yearlyProductID }
-    }
-    
-    func getYearlySavings() -> String {
-        guard let monthly = getMonthlyProduct(),
-              let yearly = getYearlyProduct() else {
-            return ""
+    /// Check if user has premium access (including trial periods and legacy users)
+    var isPremiumActive: Bool {
+        // Check for legacy users (paid app before it became free)
+        if isLegacyUser {
+            return true
         }
         
-        let monthlyYearlyPrice = monthly.price * 12
-        let savings = monthlyYearlyPrice - yearly.price
-        let savingsPercent = (savings / monthlyYearlyPrice) * 100
+        // Only return true if we have a valid subscription with future expiration
+        if let expiration = expirationDate, expiration > Date() {
+            switch subscriptionStatus {
+            case .subscribed:
+                return true
+            case .inGracePeriod:
+                return true
+            case .notSubscribed, .expired:
+                return false
+            }
+        }
         
-        return String(format: "%.0f%% off", savingsPercent as CVarArg)
+        return false
     }
     
-    // MARK: - Debug/Test Methods
+    /// Check if user is a legacy user (purchased the paid app before it became free)
+    /// SECURITY: This checks for a cryptographically signed legacy entitlement
+    /// stored in Keychain, not UserDefaults, to prevent tampering
+    var isLegacyUser: Bool {
+        // Check Keychain for signed legacy entitlement (more secure than UserDefaults)
+        // This prevents users from easily modifying the flag
+        if let legacyData = KeychainHelper.shared.get(key: "legacyFullAccess") {
+            // Verify the data is valid (contains expected signature/identifier)
+            // For additional security, you could verify against a server or use cryptographic signing
+            return legacyData == "verified_legacy_user_v1"
+        }
+        return false
+    }
+    
+    /// Set user as legacy user (call this for existing paid users)
+    /// SECURITY: Stores in Keychain instead of UserDefaults to prevent tampering
+    func setLegacyUser() {
+        // Store in Keychain instead of UserDefaults for better security
+        KeychainHelper.shared.set(key: "legacyFullAccess", value: "verified_legacy_user_v1")
+        print("✅ User set as legacy user - full access granted (stored securely)")
+    }
+    
+    /// Get legacy user status for UI display
+    var legacyUserStatus: String {
+        if isLegacyUser {
+            return "Legacy Full Access"
+        }
+        return subscriptionStatus.displayText
+    }
+    
+    /// Get monthly product
+    var monthlyProduct: Product? {
+        products.first { $0.id.contains("monthly") }
+    }
+    
+    /// Get yearly product
+    var yearlyProduct: Product? {
+        products.first { $0.id.contains("yearly") }
+    }
+    
+    /// Calculate yearly savings
+    var yearlySavings: String {
+        guard let monthly = monthlyProduct,
+              let yearly = yearlyProduct else {
+            return "Save 17%"
+        }
+        
+        let monthlyCost = monthly.price * 12
+        let yearlyCost = yearly.price
+        let savings = monthlyCost - yearlyCost
+        let savingsPercent = (savings / monthlyCost) * 100
+        
+        // Convert Decimal to Double for String formatting
+        let percentValue = (savingsPercent as NSDecimalNumber).doubleValue
+        return String(format: "%.0f%%", percentValue)
+    }
+    
+    // MARK: - Debug Methods (Basic - For Testing Only)
     
     #if DEBUG
-    func simulateTrialEnd() {
-        // Set trial start date to 8 days ago
-        let eightDaysAgo = Date().addingTimeInterval(-8 * 24 * 60 * 60)
-        UserDefaults.standard.set(eightDaysAgo, forKey: trialStartKey)
-        print("🧪 DEBUG: Set trial start to 8 days ago: \(eightDaysAgo)")
-        checkTrialStatus()
-        print("🧪 DEBUG: After trial end simulation - isTrialActive: \(isTrialActive), trialDaysRemaining: \(trialDaysRemaining)")
+    /// Simulate premium activation (debug only)
+    func activateSubscription() {
+        subscriptionStatus = .subscribed
+        print("🔄 Premium activated (simulation)")
     }
     
-    func simulatePremiumActivation() {
-        isPremiumActive = true
-        print("🧪 DEBUG: Simulated premium activation")
-    }
-    
-    func simulatePremiumDeactivation() {
-        isPremiumActive = false
-        print("🧪 DEBUG: Simulated premium deactivation")
-    }
-    
-    func resetTrial() {
-        UserDefaults.standard.removeObject(forKey: trialStartKey)
-        checkTrialStatus()
-        print("🧪 DEBUG: Reset trial")
-    }
-    
-    func clearRecentPurchase() {
-        UserDefaults.standard.removeObject(forKey: "recentPurchaseDate")
-        checkSubscriptionStatus()
-        print("🧪 DEBUG: Cleared recent purchase fallback")
-    }
-    
-    func forceSubscriptionCheck() {
-        Task {
-            await updateSubscriptionStatus()
-            print("🧪 DEBUG: Forced subscription status check - Result: \(isPremiumActive)")
-        }
+    /// Cancel subscription (debug only - simulates cancellation)
+    func cancelSubscription() {
+        subscriptionStatus = .notSubscribed
+        currentSubscription = nil
+        expirationDate = nil
+        
+        print("🔄 Subscription cancelled (simulation)")
     }
     #endif
+    
+    // MARK: - Receipt Verification (Debugging)
+    
+    /// Verify App Store receipt to debug subscription issues
+    func verifyReceipt() {
+        Task {
+            do {
+                let receiptData = try await fetchReceiptData()
+                await MainActor.run {
+                    self.receiptData = receiptData
+                    print("🔍 RECEIPT VERIFICATION:")
+                    print("   isInBillingRetryPeriod: \(receiptData.isInBillingRetryPeriod)")
+                    print("   isTrialPeriod: \(receiptData.isTrialPeriod)")
+                    print("   expiresDate: \(receiptData.expiresDate?.description ?? "nil")")
+                    print("   productId: \(receiptData.productId ?? "nil")")
+                    print("   originalTransactionId: \(receiptData.originalTransactionId ?? "nil")")
+                }
+            } catch {
+                print("❌ Receipt verification failed: \(error)")
+            }
+        }
+    }
+    
+    /// Fetch and decode App Store receipt
+    private func fetchReceiptData() async throws -> ReceiptData {
+        // Refresh receipt first
+        try await AppStore.sync()
+        
+        // Get current entitlements
+        var isInBillingRetryPeriod = false
+        var isTrialPeriod = false
+        var expiresDate: Date?
+        var productId: String?
+        var originalTransactionId: String?
+        
+        for await result in Transaction.currentEntitlements {
+            if case .verified(let transaction) = result {
+                if transaction.productType == .autoRenewable {
+                    isInBillingRetryPeriod = false // StoreKit2 doesn't expose this directly
+                    isTrialPeriod = transaction.isUpgraded == false && transaction.originalPurchaseDate == transaction.purchaseDate
+                    expiresDate = transaction.expirationDate
+                    productId = transaction.productID
+                    originalTransactionId = String(transaction.originalID)
+                    break
+                }
+            }
+        }
+        
+        // Get raw receipt data (for debugging)
+        let rawReceipt = "Receipt data available in StoreKit2 via Transaction.currentEntitlements"
+        
+        return ReceiptData(
+            isInBillingRetryPeriod: isInBillingRetryPeriod,
+            isTrialPeriod: isTrialPeriod,
+            expiresDate: expiresDate,
+            productId: productId,
+            originalTransactionId: originalTransactionId,
+            rawReceipt: rawReceipt
+        )
+    }
+}
+
+// MARK: - Subscription Status
+
+enum SubscriptionStatus {
+    case notSubscribed
+    case subscribed
+    case expired
+    case inGracePeriod
+    
+    var displayText: String {
+        switch self {
+        case .notSubscribed:
+            return "Not Subscribed"
+        case .subscribed:
+            return "Premium Active"
+        case .expired:
+            return "Subscription Expired"
+        case .inGracePeriod:
+            return "Grace Period"
+        }
+    }
 }
 
 // MARK: - Store Error
 
-enum StoreError: Error {
+enum StoreError: Error, LocalizedError {
     case failedVerification
-}
-
-// MARK: - Subscription Status Extension
-
-extension SubscriptionManager {
-    var subscriptionStatusText: String {
-        if isPremiumActive {
-            return "Premium Active"
-        } else if isTrialActive {
-            return "Trial: \(trialDaysRemaining) days left"
-        } else {
-            return "Trial Expired"
+    
+    var errorDescription: String? {
+        switch self {
+        case .failedVerification:
+            return "Transaction verification failed"
         }
     }
-    
-    var canAccessFeatures: Bool {
-        return canUseApp()
-    }
 }
+

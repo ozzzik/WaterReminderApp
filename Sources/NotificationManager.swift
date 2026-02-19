@@ -567,7 +567,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     
     private func scheduleTomorrowNotification(at date: Date) {
         // Create notification content for new day (no progress, no actions)
-        let content = createNewDayNotificationContent()
+        let content = createNewDayNotificationContent(for: date)
         
         // Use timezone-aware date components with local timezone
         let calendar = Calendar.current
@@ -615,13 +615,25 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     // New function to create notification content for new day (no progress, no actions)
-    private func createNewDayNotificationContent() -> UNMutableNotificationContent {
+    private func createNewDayNotificationContent(for date: Date) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
-        content.title = "Good Morning! ☀️"
+        
+        // Determine greeting based on time of day
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        
+        if hour < 12 {
+            content.title = "Good Morning! ☀️"
+        } else if hour < 16 {
+            content.title = "Good Afternoon! 🌤️"
+        } else {
+            content.title = "Good Evening! 🌙"
+        }
+        
         content.body = "Tap to start a new day of hydration!"
         content.sound = .default
         // No categoryIdentifier = no custom actions, just default tap
-        print("🔔 Created new day notification content")
+        print("🔔 Created new day notification content with greeting for hour \(hour)")
         return content
     }
     

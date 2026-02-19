@@ -15,13 +15,19 @@ struct WaterReminderAppApp: App {
                 .environmentObject(notificationManager)
                 .environmentObject(ratingManager)
                 .environmentObject(subscriptionManager)
-                .onAppear {
-                    notificationManager.requestNotificationPermission()
-                    // Increment launch count for rating system
-                    ratingManager.incrementLaunchCount()
-                    // Start trial if this is first launch
-                    subscriptionManager.startTrial()
-                }
+                       .onAppear {
+                           // Log system information for debugging
+                           print("📱 App launched on iOS \(UIDevice.current.systemVersion)")
+                           print("📱 Device: \(UIDevice.current.model)")
+                           print("📱 StoreKit available: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") != nil)")
+                           
+                           notificationManager.requestNotificationPermission()
+                           // Increment launch count for rating system
+                           ratingManager.incrementLaunchCount()
+                           // Connect WaterReminderManager to SubscriptionManager
+                           waterReminderManager.subscriptionManager = subscriptionManager
+                           // No app-based trial - Apple handles it via subscription trial offer
+                       }
         }
     }
 }

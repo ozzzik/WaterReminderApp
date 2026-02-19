@@ -9,61 +9,94 @@ struct SubscriptionView: View {
     @State private var showingPurchaseAlert = false
     @State private var purchaseMessage = ""
     
+    /// Dynamic message based on subscription status
+    private var subscriptionMessage: String {
+        switch subscriptionManager.subscriptionStatus {
+        case .notSubscribed:
+            return "Start your free trial and unlock all premium features for tracking your daily water intake."
+        case .expired:
+            return "Your free trial has ended. Subscribe to keep tracking your daily water intake."
+        case .inGracePeriod:
+            return "Your subscription is in grace period. Subscribe to continue enjoying premium features."
+        case .subscribed:
+            return "You're already subscribed! Thank you for supporting the app."
+        }
+    }
+    
+    /// Dynamic button text based on subscription status
+    private var buttonText: String {
+        switch subscriptionManager.subscriptionStatus {
+        case .notSubscribed:
+            return "Start Free Trial"
+        case .expired:
+            return "Subscribe Now"
+        case .inGracePeriod:
+            return "Renew Subscription"
+        case .subscribed:
+            return "Manage Subscription"
+        }
+    }
+    
     var body: some View {
-        NavigationView {
+        GeometryReader { geometry in
             VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 16) {
-                    Image(systemName: "drop.fill")
-                        .font(.system(size: 60))
-                        .foregroundColor(.blue)
-                    
-                    Text("Continue Your Hydration Journey")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-                    
-                    Text("Your free trial has ended. Subscribe to keep tracking your daily water intake.")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-                .padding(.top, 40)
-                .padding(.bottom, 30)
-                
-                // Subscription Options
-                VStack(spacing: 16) {
-                    // Yearly Option (Recommended)
-                    if let yearlyProduct = subscriptionManager.getYearlyProduct() {
-                        SubscriptionOptionView(
-                            product: yearlyProduct,
-                            isRecommended: true,
-                            isSelected: selectedProduct?.id == yearlyProduct.id,
-                            savingsText: subscriptionManager.getYearlySavings()
-                        ) {
-                            selectedProduct = yearlyProduct
+                // Scrollable content
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header
+                        VStack(spacing: 16) {
+                            Image(systemName: "drop.fill")
+                                .font(.system(size: 60))
+                                .foregroundColor(.blue)
+                            
+                            Text("Continue Your Hydration Journey")
+                                .font(.title)
+                                .fontWeight(.bold)
+                                .multilineTextAlignment(.center)
+                            
+                            Text(subscriptionMessage)
+                                .font(.body)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
                         }
-                    }
-                    
-                    // Monthly Option
-                    if let monthlyProduct = subscriptionManager.getMonthlyProduct() {
-                        SubscriptionOptionView(
-                            product: monthlyProduct,
-                            isRecommended: false,
-                            isSelected: selectedProduct?.id == monthlyProduct.id,
-                            savingsText: nil
-                        ) {
-                            selectedProduct = monthlyProduct
+                        .padding(.top, 20)
+                        .padding(.bottom, 20)
+                        
+                        // Subscription Options
+                        VStack(spacing: 16) {
+                            // Yearly Option (Recommended)
+                            if let yearlyProduct = subscriptionManager.yearlyProduct {
+                                SubscriptionOptionView(
+                                    product: yearlyProduct,
+                                    isRecommended: true,
+                                    isSelected: selectedProduct?.id == yearlyProduct.id,
+                                    savingsText: subscriptionManager.yearlySavings
+                                ) {
+                                    selectedProduct = yearlyProduct
+                                }
+                            }
+                            
+                            // Monthly Option
+                            if let monthlyProduct = subscriptionManager.monthlyProduct {
+                                SubscriptionOptionView(
+                                    product: monthlyProduct,
+                                    isRecommended: false,
+                                    isSelected: selectedProduct?.id == monthlyProduct.id,
+                                    savingsText: nil
+                                ) {
+                                    selectedProduct = monthlyProduct
+                                }
+                            }
                         }
+                        .padding(.horizontal, max(20, geometry.size.width * 0.1))
                     }
                 }
-                .padding(.horizontal, 20)
                 
-                Spacer()
-                
-                // Purchase Button
+                // Fixed bottom section for pricing and CTA
                 VStack(spacing: 16) {
+                    Divider()
+                    
                     Button(action: purchaseSubscription) {
                         HStack {
                             if subscriptionManager.isLoading {
@@ -71,7 +104,7 @@ struct SubscriptionView: View {
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                                     .scaleEffect(0.8)
                             } else {
-                                Text("Start Subscription")
+                                Text(buttonText)
                                     .fontWeight(.semibold)
                             }
                         }
@@ -82,7 +115,7 @@ struct SubscriptionView: View {
                         .cornerRadius(12)
                     }
                     .disabled(subscriptionManager.isLoading || selectedProduct == nil)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, max(20, geometry.size.width * 0.1))
                     
                     // Restore Purchases
                     Button("Restore Purchases") {
@@ -90,85 +123,94 @@ struct SubscriptionView: View {
                             await subscriptionManager.restorePurchases()
                         }
                     }
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundColor(.blue)
+                    .disabled(subscriptionManager.isLoading)
                     
-                    // Terms and Privacy
-                    VStack(spacing: 4) {
-                        Text("By subscribing, you agree to our Terms of Service and Privacy Policy.")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                    // Terms and Privacy Policy Links
+                    VStack(spacing: 8) {
+                        HStack(spacing: 16) {
+                            Link("Privacy Policy", destination: URL(string: "https://ozzzik.github.io/WaterReminderApp/privacy-policy.html")!)
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            
+                            Text("•")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            
+                            Link("Terms of Use (EULA)", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
                         
                         Text("Cancel anytime. Subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period.")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, max(20, geometry.size.width * 0.1))
                     .padding(.bottom, 20)
                 }
+                .background(Color(.systemBackground))
             }
-            .navigationTitle("Premium")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
+            .task {
+                print("🔄 Loading subscription products...")
+                await subscriptionManager.loadProducts()
+                
+                // Auto-select yearly product if available
+                if let yearlyProduct = subscriptionManager.yearlyProduct {
+                    print("✅ Auto-selected yearly product: \(yearlyProduct.id)")
+                    selectedProduct = yearlyProduct
+                } else if let monthlyProduct = subscriptionManager.monthlyProduct {
+                    print("✅ Auto-selected monthly product: \(monthlyProduct.id)")
+                    selectedProduct = monthlyProduct
+                } else {
+                    print("⚠️ No products available for selection")
                 }
             }
-        }
-        .task {
-            await subscriptionManager.loadProducts()
-            // Auto-select yearly product if available
-            if let yearlyProduct = subscriptionManager.getYearlyProduct() {
-                selectedProduct = yearlyProduct
-            } else if let monthlyProduct = subscriptionManager.getMonthlyProduct() {
-                selectedProduct = monthlyProduct
+            .alert("Purchase Result", isPresented: $showingPurchaseAlert) {
+                Button("OK") { }
+            } message: {
+                Text(purchaseMessage)
             }
-        }
-        .alert("Purchase Result", isPresented: $showingPurchaseAlert) {
-            Button("OK") { }
-        } message: {
-            Text(purchaseMessage)
         }
     }
     
     private func purchaseSubscription() {
-        guard let product = selectedProduct else { return }
+        guard let product = selectedProduct else { 
+            purchaseMessage = "Please select a subscription option"
+            showingPurchaseAlert = true
+            return 
+        }
+        
+        // Check if already loading
+        guard !subscriptionManager.isLoading else {
+            purchaseMessage = "Purchase already in progress. Please wait..."
+            showingPurchaseAlert = true
+            return
+        }
         
         Task {
-            subscriptionManager.isLoading = true
-            
             do {
-                let transaction = try await subscriptionManager.purchase(product)
+                print("🛒 Starting purchase for product: \(product.id)")
+                try await subscriptionManager.purchase(product)
                 
-                await MainActor.run {
-                    subscriptionManager.isLoading = false
-                    
-                    if transaction != nil {
-                        purchaseMessage = "Subscription activated successfully!"
-                        showingPurchaseAlert = true
-                        
-                        // Wait a moment for subscription status to update, then dismiss
-                        Task {
-                            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                            await MainActor.run {
-                                dismiss()
-                            }
-                        }
-                    } else {
-                        purchaseMessage = "Purchase was cancelled."
-                        showingPurchaseAlert = true
+                print("✅ Purchase completed successfully")
+                purchaseMessage = "Subscription activated successfully!"
+                showingPurchaseAlert = true
+                
+                // Wait for subscription status to update, then dismiss
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                    if subscriptionManager.isPremiumActive {
+                        dismiss()
                     }
                 }
             } catch {
-                await MainActor.run {
-                    subscriptionManager.isLoading = false
-                    let errorMessage = error.localizedDescription
-                    print("❌ Purchase error: \(errorMessage)")
+                let errorMessage = error.localizedDescription
+                print("❌ Purchase error: \(errorMessage)")
+                
+                // Don't show error for user cancellation
+                if !errorMessage.lowercased().contains("cancelled") {
                     purchaseMessage = "Purchase failed: \(errorMessage)"
                     showingPurchaseAlert = true
                 }
@@ -255,4 +297,5 @@ struct SubscriptionOptionView: View {
 
 #Preview {
     SubscriptionView()
+        .environmentObject(SubscriptionManager.shared)
 }
