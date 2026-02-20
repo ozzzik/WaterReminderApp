@@ -517,6 +517,31 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         return isNewDay
     }
     
+    /// Removes the single next (soonest) water reminder. Used when user earns "Skip next reminder" from a rewarded ad.
+    func cancelNextReminder() {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { [weak self] requests in
+            let waterReminders = requests.filter { $0.identifier.hasPrefix("water-reminder-") }
+            guard let next = self?.soonestTriggerDate(from: waterReminders) else {
+                print("Ad reward: No pending reminder to skip")
+                return
+            }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [next.identifier])
+            print("Ad reward: Skipped next reminder: \(next.identifier)")
+        }
+    }
+
+    private func soonestTriggerDate(from requests: [UNNotificationRequest]) -> UNNotificationRequest? {
+        let now = Date()
+        return requests
+            .compactMap { req -> (UNNotificationRequest, Date)? in
+                guard let trigger = req.trigger as? UNCalendarNotificationTrigger,
+                      let date = trigger.nextTriggerDate(), date > now else { return nil }
+                return (req, date)
+            }
+            .min(by: { $0.1 < $1.1 })
+            .map { $0.0 }
+    }
+
     func cancelRemainingNotificationsForToday() {
         print("🚫 Canceling all remaining notifications for today...")
         

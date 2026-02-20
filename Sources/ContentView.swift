@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var ratingManager: RatingManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var adManager: AdManager
     @State private var showingSettings = false
     @State private var showingAddWater = false
     @State private var showingNotificationSent = false
@@ -26,8 +27,8 @@ struct ContentView: View {
         if isIPad {
             // iPad: Single column layout with proper spacing
             VStack(spacing: 40) {
-                // Only show banner if subscription status has been checked AND user is not premium
-                if subscriptionManager.hasCheckedSubscriptionStatus && !subscriptionManager.isPremiumActive {
+                // Hide upgrade banner when using ads instead of subscription
+                if !SubscriptionManager.useAdsInsteadOfSubscription, subscriptionManager.hasCheckedSubscriptionStatus, !subscriptionManager.isPremiumActive {
                     UpgradeBannerView()
                         .padding(.horizontal)
                 }
@@ -39,8 +40,7 @@ struct ContentView: View {
                     } else {
                         // iPhone: Single column layout
                         VStack(spacing: 30) {
-                            // Only show banner if subscription status has been checked AND user is not premium
-                            if subscriptionManager.hasCheckedSubscriptionStatus && !subscriptionManager.isPremiumActive {
+                            if !SubscriptionManager.useAdsInsteadOfSubscription, subscriptionManager.hasCheckedSubscriptionStatus, !subscriptionManager.isPremiumActive {
                                 UpgradeBannerView()
                                     .padding(.horizontal)
                             }
@@ -55,15 +55,11 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { 
-                        if subscriptionManager.isPremiumActive {
-                            showingSettings = true 
-                        } else {
-                            showingPaywall = true
-                        }
+                    Button(action: {
+                        showingSettings = true
                     }) {
                         Image(systemName: "gear")
-                            .foregroundColor(subscriptionManager.isPremiumActive ? .blue : .gray)
+                            .foregroundColor(.blue)
                     }
                 }
             }
@@ -286,6 +282,23 @@ struct ContentView: View {
                     .cornerRadius(12)
                 }
                 .disabled(!subscriptionManager.isPremiumActive && !hasRecurringNotifications)
+
+                // Ads: Watch ad to skip next reminder
+                if SubscriptionManager.useAdsInsteadOfSubscription {
+                    Button(action: {
+                        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+                        adManager.showRewardedInterstitial(from: scene)
+                    }) {
+                        HStack {
+                            Image(systemName: "play.rectangle.fill")
+                            Text(adManager.isAdReady ? "Watch ad to skip next reminder" : adManager.isLoading ? "Loading ad…" : "Ad not ready")
+                                .fontWeight(.medium)
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(adManager.isAdReady ? .blue : .secondary)
+                    }
+                    .disabled(!adManager.isAdReady)
+                }
                 
                 // Notification troubleshooting info
                 if !notificationManager.isAuthorized {

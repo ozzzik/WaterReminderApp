@@ -7,7 +7,8 @@ struct WaterReminderAppApp: App {
     @StateObject private var notificationManager = NotificationManager()
     @StateObject private var ratingManager = RatingManager()
     @StateObject private var subscriptionManager = SubscriptionManager.shared
-    
+    @StateObject private var adManager = AdManager.shared
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -15,19 +16,21 @@ struct WaterReminderAppApp: App {
                 .environmentObject(notificationManager)
                 .environmentObject(ratingManager)
                 .environmentObject(subscriptionManager)
-                       .onAppear {
-                           // Log system information for debugging
-                           print("📱 App launched on iOS \(UIDevice.current.systemVersion)")
-                           print("📱 Device: \(UIDevice.current.model)")
-                           print("📱 StoreKit available: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") != nil)")
-                           
-                           notificationManager.requestNotificationPermission()
-                           // Increment launch count for rating system
-                           ratingManager.incrementLaunchCount()
-                           // Connect WaterReminderManager to SubscriptionManager
-                           waterReminderManager.subscriptionManager = subscriptionManager
-                           // No app-based trial - Apple handles it via subscription trial offer
-                       }
+                .environmentObject(adManager)
+                .onAppear {
+                    print("📱 App launched on iOS \(UIDevice.current.systemVersion)")
+                    print("📱 Device: \(UIDevice.current.model)")
+
+                    notificationManager.requestNotificationPermission()
+                    ratingManager.incrementLaunchCount()
+                    waterReminderManager.subscriptionManager = subscriptionManager
+
+                    // Ads: reward = skip next reminder
+                    adManager.onReward = { [notificationManager] in
+                        notificationManager.cancelNextReminder()
+                    }
+                    adManager.start()
+                }
         }
     }
 }

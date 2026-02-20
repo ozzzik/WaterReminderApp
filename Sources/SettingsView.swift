@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var notificationManager: NotificationManager
     @EnvironmentObject var ratingManager: RatingManager
     @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var adManager: AdManager
     @Environment(\.dismiss) private var dismiss
     @State private var showingPaywall = false
     
@@ -46,6 +47,10 @@ struct SettingsView: View {
                             presetIntervals: presetIntervals
                         )
                         
+                        if SubscriptionManager.useAdsInsteadOfSubscription {
+                            AdRewardSection()
+                        }
+                        
                         // Subscription Section
                         SubscriptionSection(showingPaywall: $showingPaywall)
                         
@@ -73,6 +78,10 @@ struct SettingsView: View {
                     showingCustomInterval: $showingCustomInterval,
                     presetIntervals: presetIntervals
                 )
+                
+                if SubscriptionManager.useAdsInsteadOfSubscription {
+                    AdRewardSection()
+                }
                 
                 // Subscription Section
                 SubscriptionSection(showingPaywall: $showingPaywall)
@@ -365,6 +374,29 @@ struct ReminderSettingsSection: View {
         waterReminderManager.reminderInterval = intervalSeconds
         waterReminderManager.saveSettingsManually()
         waterReminderManager.scheduleReminders()
+    }
+}
+
+// MARK: - Ad Reward Section (when using ads instead of subscription)
+
+struct AdRewardSection: View {
+    @EnvironmentObject var adManager: AdManager
+
+    var body: some View {
+        Section("Skip next reminder") {
+            Button(action: {
+                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
+                adManager.showRewardedInterstitial(from: scene)
+            }) {
+                HStack {
+                    Image(systemName: "play.rectangle.fill")
+                        .foregroundColor(.blue)
+                    Text(adManager.isAdReady ? "Watch ad to skip next reminder" : adManager.isLoading ? "Loading ad…" : "Ad not ready")
+                        .foregroundColor(adManager.isAdReady ? .primary : .secondary)
+                }
+            }
+            .disabled(!adManager.isAdReady)
+        }
     }
 }
 

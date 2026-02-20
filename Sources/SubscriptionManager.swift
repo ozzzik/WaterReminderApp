@@ -313,26 +313,26 @@ class SubscriptionManager: ObservableObject {
     }
     
     // MARK: - Helper Properties
-    
-    /// Check if user has premium access (including trial periods and legacy users)
+
+    /// When true, app uses ads-only monetization: everyone has full access; "Watch ad to skip next reminder" is shown.
+    static var useAdsInsteadOfSubscription = true
+
+    /// Check if user has premium access (including trial periods, legacy users, or ads-only mode)
     var isPremiumActive: Bool {
-        // Check for legacy users (paid app before it became free)
+        if SubscriptionManager.useAdsInsteadOfSubscription {
+            return true
+        }
         if isLegacyUser {
             return true
         }
-        
-        // Only return true if we have a valid subscription with future expiration
         if let expiration = expirationDate, expiration > Date() {
             switch subscriptionStatus {
-            case .subscribed:
-                return true
-            case .inGracePeriod:
+            case .subscribed, .inGracePeriod:
                 return true
             case .notSubscribed, .expired:
                 return false
             }
         }
-        
         return false
     }
     
