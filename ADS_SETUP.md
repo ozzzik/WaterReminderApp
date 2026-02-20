@@ -189,9 +189,9 @@ AdMob may ask you to verify the app with an **app-ads.txt** file on your develop
    For this project, the developer site is **https://ozzzik.github.io/WaterReminderApp/** so the file must be available at:
    **https://ozzzik.github.io/WaterReminderApp/app-ads.txt**
 
-3. **In this repo** the file is **docs/app-ads.txt**.  
-   - If GitHub Pages is set to “Deploy from branch” with source **/docs**, then `docs/app-ads.txt` is already at the site root and the URL above will work after you push and Pages rebuilds.  
-   - If your Pages site is built from the repo root instead, move `app-ads.txt` to the repo root so that `https://ozzzik.github.io/WaterReminderApp/app-ads.txt` serves that file.
+3. **In this repo** the file must be at the **root** of what gets published (so the URL is exactly `.../app-ads.txt`, not `.../docs/app-ads.txt`).  
+   - **app-ads.txt** is in the **repository root** so that when GitHub Pages deploys from the branch root, it’s served at `https://ozzzik.github.io/WaterReminderApp/app-ads.txt`.  
+   - If your GitHub Pages is set to use the **/docs** folder as the source, the site root is the contents of `docs/`. In that case either switch Pages to “Deploy from branch” with root **/ (root)**, or put a copy of `app-ads.txt` inside `docs/` so it’s at the published site root.
 
 4. In AdMob, open your app → **Check for updates** (or re-run verification). Verification can take a short while.
 
