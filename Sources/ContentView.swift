@@ -283,21 +283,24 @@ struct ContentView: View {
                 }
                 .disabled(!subscriptionManager.isPremiumActive && !hasRecurringNotifications)
 
-                // Ads: Watch ad to skip next reminder
-                if SubscriptionManager.useAdsInsteadOfSubscription {
+                // Ads: Watch ad for ad-free rest of day (hidden once earned for today)
+                if SubscriptionManager.useAdsInsteadOfSubscription, !adManager.isAdFreeForRestOfDay {
                     Button(action: {
-                        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-                        adManager.showRewardedInterstitial(from: scene)
+                        if adManager.isAdReady {
+                            let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+                            adManager.showRewardedInterstitial(from: scene)
+                        } else {
+                            Task { await adManager.loadRewardedInterstitial() }
+                        }
                     }) {
                         HStack {
                             Image(systemName: "play.rectangle.fill")
-                            Text(adManager.isAdReady ? "Watch ad to skip next reminder" : adManager.isLoading ? "Loading ad…" : "Ad not ready")
+                            Text(adManager.isAdReady ? "Watch ad for ad-free rest of day" : adManager.isLoading ? "Loading ad…" : "Tap to load ad")
                                 .fontWeight(.medium)
                         }
                         .font(.subheadline)
                         .foregroundColor(adManager.isAdReady ? .blue : .secondary)
                     }
-                    .disabled(!adManager.isAdReady)
                 }
                 
                 // Notification troubleshooting info

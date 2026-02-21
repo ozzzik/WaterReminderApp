@@ -34,17 +34,6 @@ A beautifully designed iOS app that helps you maintain proper hydration througho
 - **Notification Preferences**: Choose when and how often to be reminded
 - **Persistent Settings**: Preferences automatically saved and restored
 
-## 🖼️ Screenshots
-
-### Main Interface
-![Main Interface](AppStore_Images/2778x1284/screenshot_01_2778x1284.png)
-
-### Progress Tracking
-![Progress Tracking](AppStore_Images/2778x1284/screenshot_03_2778x1284.png)
-
-### Settings & Customization
-![Settings](AppStore_Images/2778x1284/screenshot_04_2778x1284.png)
-
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -148,9 +137,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/yourusername/WaterReminderApp/issues)
-- **Email Support**: [your-email@domain.com](mailto:your-email@domain.com)
-- **Documentation**: [Full documentation](https://github.com/yourusername/WaterReminderApp/wiki)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/ozzzik/WaterReminderApp/issues)
+- **Email Support**: [rickhamp85@gmail.com](mailto:rickhamp85@gmail.com)
+- **Documentation**: [Full documentation](https://github.com/ozzzik/WaterReminderApp/wiki)
 
 ## 🙏 Acknowledgments
 

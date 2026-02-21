@@ -25,9 +25,9 @@ struct WaterReminderAppApp: App {
                     ratingManager.incrementLaunchCount()
                     waterReminderManager.subscriptionManager = subscriptionManager
 
-                    // Ads: reward = skip next reminder
-                    adManager.onReward = { [notificationManager] in
-                        notificationManager.cancelNextReminder()
+                    // Ads: reward = ad-free for the rest of the day
+                    adManager.onReward = { [adManager] in
+                        DispatchQueue.main.async { adManager.grantAdFreeForRestOfDay() }
                     }
                     adManager.start()
                 }

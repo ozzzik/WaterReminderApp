@@ -47,12 +47,11 @@ struct SettingsView: View {
                             presetIntervals: presetIntervals
                         )
                         
-                        if SubscriptionManager.useAdsInsteadOfSubscription {
+                        if SubscriptionManager.useAdsInsteadOfSubscription, !adManager.isAdFreeForRestOfDay {
                             AdRewardSection()
+                        } else if !SubscriptionManager.useAdsInsteadOfSubscription {
+                            SubscriptionSection(showingPaywall: $showingPaywall)
                         }
-                        
-                        // Subscription Section
-                        SubscriptionSection(showingPaywall: $showingPaywall)
                         
                         #if DEBUG
                         // Debug Controls
@@ -79,12 +78,11 @@ struct SettingsView: View {
                     presetIntervals: presetIntervals
                 )
                 
-                if SubscriptionManager.useAdsInsteadOfSubscription {
+                if SubscriptionManager.useAdsInsteadOfSubscription, !adManager.isAdFreeForRestOfDay {
                     AdRewardSection()
+                } else if !SubscriptionManager.useAdsInsteadOfSubscription {
+                    SubscriptionSection(showingPaywall: $showingPaywall)
                 }
-                
-                // Subscription Section
-                SubscriptionSection(showingPaywall: $showingPaywall)
                 
                 #if DEBUG
                 // Debug Controls
@@ -383,19 +381,22 @@ struct AdRewardSection: View {
     @EnvironmentObject var adManager: AdManager
 
     var body: some View {
-        Section("Skip next reminder") {
+        Section("Ad-free for today") {
             Button(action: {
-                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene else { return }
-                adManager.showRewardedInterstitial(from: scene)
+                if adManager.isAdReady {
+                    let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene
+                    adManager.showRewardedInterstitial(from: scene)
+                } else {
+                    Task { await adManager.loadRewardedInterstitial() }
+                }
             }) {
                 HStack {
                     Image(systemName: "play.rectangle.fill")
                         .foregroundColor(.blue)
-                    Text(adManager.isAdReady ? "Watch ad to skip next reminder" : adManager.isLoading ? "Loading ad…" : "Ad not ready")
+                    Text(adManager.isAdReady ? "Watch ad for ad-free rest of day" : adManager.isLoading ? "Loading ad…" : "Tap to load ad")
                         .foregroundColor(adManager.isAdReady ? .primary : .secondary)
                 }
             }
-            .disabled(!adManager.isAdReady)
         }
     }
 }
@@ -436,12 +437,20 @@ struct SubscriptionSection: View {
 #if DEBUG
 struct DebugControlsSection: View {
     @EnvironmentObject var subscriptionManager: SubscriptionManager
+    @EnvironmentObject var waterReminderManager: WaterReminderManager
     
     var body: some View {
         Section("Debug Controls") {
             Text("Testing Tools (Xcode Only)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            Button("Reset cups") {
+                waterReminderManager.resetDailyIntake()
+            }
+            .buttonStyle(.bordered)
+            .tint(.orange)
+            .controlSize(.small)
             
             HStack(spacing: 12) {
                 Button("Activate Premium") {
@@ -477,19 +486,19 @@ struct DebugControlsSection: View {
                         .font(.caption)
                         .fontWeight(.semibold)
                     
-                    Text("isInBillingRetryPeriod: \(receiptData.isInBillingRetryPeriod)")
+                    Text(verbatim: "isInBillingRetryPeriod: \(receiptData.isInBillingRetryPeriod)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    Text("isTrialPeriod: \(receiptData.isTrialPeriod)")
+                    Text(verbatim: "isTrialPeriod: \(receiptData.isTrialPeriod)")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    Text("expiresDate: \(receiptData.expiresDate?.description ?? "nil")")
+                    Text(verbatim: "expiresDate: \(receiptData.expiresDate?.description ?? "nil")")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     
-                    Text("productId: \(receiptData.productId ?? "nil")")
+                    Text(verbatim: "productId: \(receiptData.productId ?? "nil")")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -510,7 +519,7 @@ struct AboutSection: View {
                     .foregroundColor(.blue)
                 Text("Version")
                 Spacer()
-                Text("1.4")
+                Text("1.5")
                     .foregroundColor(.secondary)
             }
             

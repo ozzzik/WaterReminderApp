@@ -8,11 +8,19 @@ options:
   generateEmptyDirectories: false
   createIntermediateGroups: false
 
+packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads
+    from: "13.0.0"
+
 targets:
   WaterReminderApp:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
+    dependencies:
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
     sources:
       - path: Sources
       - path: Assets.xcassets
@@ -20,8 +28,8 @@ targets:
       INFOPLIST_FILE: Sources/Info.plist
       PRODUCT_BUNDLE_IDENTIFIER: com.whio.waterreminder.app
       PRODUCT_NAME: WaterReminderApp
-      MARKETING_VERSION: "1.4"
-      CURRENT_PROJECT_VERSION: "3"
+      MARKETING_VERSION: "1.5"
+      CURRENT_PROJECT_VERSION: "4"
       CODE_SIGN_STYLE: Automatic
       CODE_SIGNING_ALLOWED: true
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -34,15 +42,14 @@ targets:
         CFBundleDisplayName: "Water Reminder"
         CFBundleName: "WaterReminderApp"
         CFBundlePackageType: APPL
-        CFBundleShortVersionString: "1.4"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "1.5"
+        CFBundleVersion: "4"
         UILaunchStoryboardName: LaunchScreen
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
           UISceneConfigurations:
             UIWindowSceneSessionRoleApplication:
               - UISceneConfigurationName: Default Configuration
-                UISceneDelegateClassName: $(PRODUCT_MODULE_NAME).SceneDelegate
         NSUserNotificationsUsageDescription: "This app needs notification permission to remind you to drink water throughout the day."
         ITSAppUsesNonExemptEncryption: false
         LSApplicationQueriesSchemes:

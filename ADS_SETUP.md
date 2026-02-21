@@ -4,11 +4,34 @@ This guide walks you through getting your **AdMob App ID** and **Rewarded Inters
 
 ---
 
+## Ready for ads – before you publish
+
+Use this checklist before submitting a version that should show real ads:
+
+| Step | What to do | Where |
+|------|------------|--------|
+| 1 | Add Google Mobile Ads SDK | Xcode → File → Add Package Dependencies → `https://github.com/googleads/swift-package-manager-google-mobile-ads` → add **GoogleMobileAds** to target |
+| 2 | Replace **test** App ID with your **real** AdMob App ID | **Sources/Info.plist** → `GADApplicationIdentifier` (get ID from AdMob → Apps → your app) |
+| 3 | Replace **test** ad unit IDs with your **real** ad unit IDs | **Sources/AdManager.swift** → `rewardedInterstitialAdUnitID` and `interstitialAdUnitID` (create Rewarded Interstitial and Interstitial in AdMob → your app → Ad units) |
+| 4 | Privacy policy | Already in **docs/privacy-policy.html** (Advertising section). Ensure it’s live at your Support URL. |
+| 5 | App Store Connect → App Privacy | Declare **Advertising** (and any data types AdMob uses per their policy). |
+| 6 | app-ads.txt | Already at repo root; must be live at `https://ozzzik.github.io/WaterReminderApp/app-ads.txt` (and Support URL set on new version for verification). |
+
+**Ad unit IDs:**
+
+- **Info.plist** `GADApplicationIdentifier`: use your real AdMob App ID.
+- **AdManager.swift** `rewardedInterstitialAdUnitID`: your Rewarded Interstitial ad unit (optional "watch ad for ad-free rest of day").
+- **AdManager.swift** `interstitialAdUnitID`: your **Interstitial** ad unit (pop-up after every 3 water logs). The project currently uses a test Interstitial ID; create an Interstitial ad unit in AdMob and replace it before release or only test ads will show for interstitials.
+
+If you ship with test IDs, only test ads will show and you will not earn. No crash.
+
+---
+
 ## What you need before starting
 
 - A **Google account** (Gmail).
 - Your app’s **bundle ID**: `com.whio.waterreminder.app` (from Xcode → target WaterReminderApp → General → Bundle Identifier).
-- The app already uses **rewarded interstitial** ads with reward **“Skip next reminder”**. You only need to add the SDK and your own IDs.
+- The app uses **interstitial** ads (pop-up after every 3 water logs) and optional **rewarded interstitial** ads whose reward is **"ad-free for the rest of the day"**. You need the SDK and your own App ID plus both ad unit IDs (Interstitial and Rewarded Interstitial).
 
 ---
 
@@ -76,10 +99,12 @@ We need one ad unit of type **Rewarded interstitial**.
 
 ### 4. Name and reward (optional but recommended)
 
-- **Ad unit name:** e.g. `Skip next reminder` or `Main rewarded interstitial`.
-- **Reward item name:** e.g. `skip_reminder` (used for reporting; can be anything).
+- **Ad unit name:** e.g. `Ad-free for today` or `Main rewarded interstitial`.
+- **Reward item name:** e.g. `ad_free` (used for reporting; can be anything).
 - **Reward amount:** e.g. `1` (required; whole number).
 - Click **Create ad unit**.
+
+**Note:** AdMob does **not** expose a “reward duration” or “minimum watch time” setting per ad unit. How long the user must watch before the close button appears (and the reward is granted) is **5–30 seconds** and is determined by the **ad creative** (the video/ad from the network), not by a setting you can change. To allow *longer* rewarded ads (up to 60 seconds), use the app-level **High-engagement ads** setting; see the section below.
 
 ### 5. Copy the Ad unit ID
 
@@ -88,6 +113,19 @@ We need one ad unit of type **Rewarded interstitial**.
 - Click **Copy** (or the copy icon) next to the Ad unit ID and save it.
 
 **Summary:** You now have your **Rewarded interstitial (or Rewarded) Ad unit ID** (format `ca-app-pub-.../...`). This goes into **AdManager.swift**.
+
+### Optional: Allow longer rewarded ads (up to 60 seconds)
+
+By default, rewarded ads can be skippable after **5–30 seconds** (depending on the creative). If you want to allow **longer** rewarded ads (skip time up to **60 seconds**) so users watch more before earning “ad-free for the rest of the day”, enable **High-engagement ads** at the **app** level (not per ad unit):
+
+1. In AdMob, go to **Apps** in the sidebar.
+2. Select your app (e.g. **Water Reminder**). If you don’t see it, click **View all apps**.
+3. In the sidebar, click **App settings**.
+4. Find **High-engagement ads** and click the row (or the control next to it).
+5. Turn the **High-engagement ads** switch **on**.
+6. Click **Save**.
+
+This applies to all rewarded and interstitial ad units in that app. Rewarded ads can then be skippable no later than 60 seconds (reward is granted when the skip time is reached).
 
 ---
 
@@ -196,6 +234,27 @@ AdMob may ask you to verify the app with an **app-ads.txt** file on your develop
 4. In AdMob, open your app → **Check for updates** (or re-run verification). Verification can take a short while.
 
 The domain in App Store Connect for your app (Support URL / Marketing URL) must match the domain where app-ads.txt is hosted (e.g. `ozzzik.github.io`).
+
+### If verification still fails
+
+1. **Match the “developer website” AdMob uses**  
+   AdMob crawls the **exact** developer URL that’s tied to your app. For iOS that comes from **App Store Connect** (the URL shown on the App Store as your app’s developer/support site).  
+   - In **App Store Connect** → your app → **App Information** (or the app’s main info page), set **Support URL** to:  
+     `https://ozzzik.github.io/WaterReminderApp/`  
+   - Do **not** use the GitHub repo URL (e.g. `https://github.com/ozzzik/WaterReminderApp`). Use the **GitHub Pages** URL above.  
+   - Save, then submit a small metadata-only version update if needed so the store listing refreshes. AdMob can take **up to 24 hours** to re-crawl after a change.
+
+2. **Confirm the file URL in a browser**  
+   Open: `https://ozzzik.github.io/WaterReminderApp/app-ads.txt`  
+   You should see exactly one line:  
+   `google.com, pub-4048960606079471, DIRECT, f08c47fec0942fa0`  
+   If you get 404, GitHub Pages may be using a different source (e.g. `/docs`); set Pages to deploy from branch **main** / **root** so the repo-root `app-ads.txt` is published.
+
+3. **Use AdMob’s own help**  
+   In the verification error screen, use **“Troubleshoot and fix issues in your app-ads.txt file”**. It often shows the **exact URL** AdMob is requesting; that URL must return your app-ads.txt content.
+
+4. **Wait 24 hours**  
+   After any change to the file or to the developer URL in App Store Connect, allow up to 24 hours before checking again.
 
 ---
 

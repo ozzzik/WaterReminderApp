@@ -232,6 +232,9 @@ class WaterReminderManager: ObservableObject {
         
         // Refresh notifications to update progress display
         refreshNotificationContent()
+
+        // Notify ad system for optional interstitial after N logs
+        NotificationCenter.default.post(name: NSNotification.Name("WaterLogged"), object: nil)
     }
     
     private var refreshWorkItem: DispatchWorkItem?
@@ -549,7 +552,7 @@ class WaterReminderManager: ObservableObject {
     // MARK: - Version Migration
     private func handleVersionMigration() {
         let defaults = UserDefaults.standard
-        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.4"
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5"
         let lastVersion = defaults.string(forKey: "lastAppVersion")
         
         // First launch or version change
